@@ -1,0 +1,26 @@
+spring:
+  application:
+    name: canvas-backend
+  datasource:
+    url: ${CANVAS_DATABASE_URL:jdbc:postgresql://localhost:5432/canvas}
+    username: ${POSTGRES_USER:canvas}
+    password: ${POSTGRES_PASSWORD:canvas-local-password}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+
+canvas:
+  admin:
+    username: ${CANVAS_ADMIN_USERNAME:admin}
+    password-hash: ${CANVAS_ADMIN_PASSWORD_HASH}
+  public-base-url: ${CANVAS_PUBLIC_BASE_URL:http://localhost:5173}
+  upload-max-size: ${CANVAS_UPLOAD_MAX_SIZE:10MB}
+  caption-worker-url: ${CANVAS_CAPTION_WORKER_URL:http://localhost:8000}

@@ -1,2 +1,15 @@
 .worktrees/
 .superpowers/
+.env
+.cache/
+backend/target/
+frontend/node_modules/
+frontend/dist/
+frontend/*.tsbuildinfo
+caption-worker/.venv/
+caption-worker/.pytest_cache/
+caption-worker/__pycache__/
+caption-worker/src/**/__pycache__/
+caption-worker/tests/**/__pycache__/
+*.py[cod]
+.DS_Store
