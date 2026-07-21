@@ -44,7 +44,8 @@ button {
 }
 
 button:disabled {
-  cursor: wait;
+  cursor: not-allowed;
+  opacity: 0.65;
 }
 
 .error-summary {
@@ -65,4 +66,57 @@ button:disabled {
 
 .status-label {
   font-weight: 700;
+}
+
+.description-editor,
+.description-list {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.new-description-form,
+.description-card {
+  border: 1px solid #89939e;
+  border-radius: 0.35rem;
+  padding: 1rem;
+}
+
+.description-card-heading {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.5rem;
+}
+
+.description-card-heading h3,
+.description-card-heading p {
+  margin-block: 0.25rem;
+}
+
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
+.draft-notice {
+  border-left: 0.35rem solid #9a6500;
+  padding-left: 0.75rem;
+}
+
+.revision-history {
+  border-top: 1px solid #c6ccd2;
+  margin-top: 1.25rem;
+}
+
+.revision-history li + li {
+  border-top: 1px dashed #c6ccd2;
+}
+
+.approval-dialog {
+  max-width: min(32rem, calc(100% - 2rem));
+}
+
+.approval-dialog::backdrop {
+  background: rgb(0 0 0 / 45%);
 }

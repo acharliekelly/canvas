@@ -1,8 +1,10 @@
 package org.canvas.shared.api;
 
 import org.canvas.artwork.ArtworkService.ArtworkProblem;
+import org.canvas.description.DescriptionService.DescriptionProblem;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -34,6 +36,31 @@ public class ApiExceptionHandler {
         if (error.getField() != null) {
             problem.setProperty("field", error.getField());
         }
+        return problem;
+    }
+
+    @ExceptionHandler(DescriptionProblem.class)
+    ProblemDetail descriptionProblem(DescriptionProblem error) {
+        HttpStatus status = switch (error.getCode()) {
+            case "artwork_not_found", "description_not_found" -> HttpStatus.NOT_FOUND;
+            case "stale_version" -> HttpStatus.CONFLICT;
+            default -> HttpStatus.BAD_REQUEST;
+        };
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(status, error.getMessage());
+        problem.setTitle(status == HttpStatus.BAD_REQUEST ? "Invalid description" : status.getReasonPhrase());
+        problem.setProperty("code", error.getCode());
+        if (error.getField() != null) {
+            problem.setProperty("field", error.getField());
+        }
+        return problem;
+    }
+
+    @ExceptionHandler(OptimisticLockingFailureException.class)
+    ProblemDetail optimisticConflict(OptimisticLockingFailureException error) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT,
+                "This resource changed after it was loaded. Refresh and try again.");
+        problem.setTitle("Conflict");
+        problem.setProperty("code", "stale_version");
         return problem;
     }
 
