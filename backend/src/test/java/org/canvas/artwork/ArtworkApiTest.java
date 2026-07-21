@@ -4,6 +4,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
@@ -123,19 +125,61 @@ class ArtworkApiTest {
     @Test
     void rejectsUnsupportedDeclaredTypeAsProblemDetails() throws Exception {
         assertRejected(new MockMultipartFile("image", "art.gif", "image/gif", validImage("gif")),
-                "unsupported_media_type");
+                "unsupported_media_type", "image");
     }
 
     @Test
     void rejectsOversizedImageAsProblemDetails() throws Exception {
         assertRejected(new MockMultipartFile("image", "large.png", "image/png", new byte[1025]),
-                "image_too_large");
+                "image_too_large", "image");
     }
 
     @Test
     void rejectsUndecodableImageAsProblemDetails() throws Exception {
         assertRejected(new MockMultipartFile("image", "broken.png", "image/png", "not an image".getBytes()),
-                "invalid_image");
+                "invalid_image", "image");
+    }
+
+    @Test
+    void rejectsOverlongTitleBeforeStoringTheImage() throws Exception {
+        mvc.perform(multipart("/api/artworks")
+                        .file(validPng())
+                        .param("title", "T".repeat(256))
+                        .param("credit", "A. Artist")
+                        .with(user("admin"))
+                        .with(csrf()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("title_too_long"))
+                .andExpect(jsonPath("$.field").value("title"));
+
+        verify(storage, never()).put(any(), anyLong(), anyString());
+    }
+
+    @Test
+    void rejectsOverlongCreditBeforeStoringTheImage() throws Exception {
+        mvc.perform(multipart("/api/artworks")
+                        .file(validPng())
+                        .param("title", "Blue Study")
+                        .param("credit", "A".repeat(256))
+                        .with(user("admin"))
+                        .with(csrf()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("credit_too_long"))
+                .andExpect(jsonPath("$.field").value("credit"));
+
+        verify(storage, never()).put(any(), anyLong(), anyString());
+    }
+
+    @Test
+    void identifiesTheMissingMetadataField() throws Exception {
+        mvc.perform(multipart("/api/artworks")
+                        .file(validPng())
+                        .param("credit", "A. Artist")
+                        .with(user("admin"))
+                        .with(csrf()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("invalid_request"))
+                .andExpect(jsonPath("$.field").value("title"));
     }
 
     @Test
@@ -155,7 +199,7 @@ class ArtworkApiTest {
         org.assertj.core.api.Assertions.assertThat(repository.count()).isZero();
     }
 
-    private void assertRejected(MockMultipartFile file, String code) throws Exception {
+    private void assertRejected(MockMultipartFile file, String code, String field) throws Exception {
         mvc.perform(multipart("/api/artworks")
                         .file(file)
                         .param("title", "Blue Study")
@@ -164,7 +208,8 @@ class ArtworkApiTest {
                         .with(csrf()))
                 .andExpect(status().isBadRequest())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
-                .andExpect(jsonPath("$.code").value(code));
+                .andExpect(jsonPath("$.code").value(code))
+                .andExpect(jsonPath("$.field").value(field));
     }
 
     static MockMultipartFile validPng() throws Exception {

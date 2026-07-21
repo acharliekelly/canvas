@@ -17,6 +17,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.SimpleTransactionStatus;
 import org.springframework.util.unit.DataSize;
 
 @ExtendWith(MockitoExtension.class)
@@ -27,13 +29,17 @@ class ArtworkServiceTest {
     @Mock
     ObjectStorage storage;
 
+    @Mock
+    PlatformTransactionManager transactionManager;
+
     @Test
     void persistenceFailureDeletesStoredObject() throws Exception {
         when(storage.put(any(), anyLong(), anyString()))
                 .thenReturn(new ObjectStorage.StoredObject("artworks/stored-object"));
         when(repository.saveAndFlush(any()))
                 .thenThrow(new DataAccessResourceFailureException("database unavailable"));
-        ArtworkService service = new ArtworkService(repository, storage, DataSize.ofMegabytes(1));
+        when(transactionManager.getTransaction(any())).thenReturn(new SimpleTransactionStatus());
+        ArtworkService service = new ArtworkService(repository, storage, transactionManager, DataSize.ofMegabytes(1));
 
         assertThatThrownBy(() -> service.upload(validPng(), "Blue Study", "A. Artist", null))
                 .isInstanceOf(ArtworkService.ArtworkProblem.class)

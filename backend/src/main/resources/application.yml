@@ -6,6 +6,7 @@ spring:
     username: ${POSTGRES_USER:canvas}
     password: ${POSTGRES_PASSWORD:canvas-local-password}
   jpa:
+    open-in-view: false
     hibernate:
       ddl-auto: validate
   flyway:
@@ -16,6 +17,10 @@ management:
     web:
       exposure:
         include: health
+
+server:
+  tomcat:
+    max-swallow-size: -1B
 
 canvas:
   admin:
@@ -29,4 +34,4 @@ canvas:
     access-key: ${MINIO_ROOT_USER:canvas-minio}
     secret-key: ${MINIO_ROOT_PASSWORD:canvas-minio-local-password}
     region: ${CANVAS_S3_REGION:us-east-1}
-    originals-bucket: ${CANVAS_ORIGINALS_BUCKET:canvas-originals}
+    originals-bucket: ${CANVAS_ORIGINALS_BUCKET}

@@ -48,7 +48,7 @@ describe("ArtworkUploadForm", () => {
 
   it("shows server validation messages in a focused error summary", async () => {
     const user = userEvent.setup();
-    mockedApiFetch.mockImplementation(() => { throw { status: 400, message: "Only PNG and JPEG images are supported." }; });
+    mockedApiFetch.mockImplementation(() => { throw { status: 400, message: "Title must be 255 characters or fewer.", field: "title" }; });
     render(<ArtworkUploadForm onUploaded={vi.fn()} />);
 
     await user.upload(screen.getByLabelText("Artwork image"), validPng);
@@ -57,7 +57,11 @@ describe("ArtworkUploadForm", () => {
     await user.click(screen.getByRole("button", { name: "Upload artwork" }));
 
     const error = await screen.findByRole("alert");
-    expect(error).toHaveTextContent("Only PNG and JPEG images are supported.");
+    expect(error).toHaveTextContent("Title must be 255 characters or fewer.");
     expect(error).toHaveFocus();
+    expect(screen.getByRole("link", { name: "Title must be 255 characters or fewer." }))
+      .toHaveAttribute("href", "#artwork-title");
+    expect(screen.getByLabelText("Title")).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByLabelText("Title")).toHaveAccessibleDescription("Title must be 255 characters or fewer.");
   });
 });

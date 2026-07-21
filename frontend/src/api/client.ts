@@ -3,7 +3,8 @@ import type { ApiProblem } from "./types";
 let csrfToken: string | null = null;
 
 export class ApiError extends Error {
-  constructor(public readonly status: number, message: string, public readonly code?: string) {
+  constructor(public readonly status: number, message: string, public readonly code?: string,
+    public readonly field?: string) {
     super(message);
     this.name = "ApiError";
   }
@@ -23,7 +24,8 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
   const body = await readBody(response);
   if (!response.ok) {
     const problem = body as Partial<ApiProblem> | null;
-    throw new ApiError(response.status, problem?.detail ?? "The request could not be completed.", problem?.code);
+    throw new ApiError(response.status, problem?.detail ?? "The request could not be completed.", problem?.code,
+      problem?.field);
   }
   if (body && typeof body === "object" && "csrfToken" in body && typeof body.csrfToken === "string") {
     setCsrfToken(body.csrfToken);

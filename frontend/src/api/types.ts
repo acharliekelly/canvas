@@ -25,4 +25,5 @@ export interface ApiProblem {
   title: string;
   detail: string;
   code?: string;
+  field?: string;
 }

@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := test
 
-.PHONY: up down test test-backend test-frontend test-worker
+.PHONY: up down test test-backend test-frontend test-worker test-infrastructure
 
 up:
 	docker compose up --build
@@ -8,11 +8,10 @@ up:
 down:
 	docker compose down
 
-test: test-backend test-frontend test-worker
+test: test-backend test-frontend test-worker test-infrastructure
 
 test-backend:
-	docker build --target test -t canvas-backend-test backend
-	docker run --rm canvas-backend-test
+	cd backend && ./mvnw test
 
 test-frontend:
 	docker build --target test -t canvas-frontend-test frontend
@@ -21,3 +20,6 @@ test-frontend:
 test-worker:
 	docker build --target test -t canvas-worker-test caption-worker
 	docker run --rm canvas-worker-test
+
+test-infrastructure:
+	sh infrastructure/minio/configuration-test.sh

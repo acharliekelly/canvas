@@ -4,6 +4,7 @@ import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import javax.imageio.ImageIO;
@@ -14,7 +15,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.util.unit.DataSize;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -22,34 +25,38 @@ import org.springframework.web.multipart.MultipartFile;
 public class ArtworkService {
     private static final Logger log = LoggerFactory.getLogger(ArtworkService.class);
     private static final Set<String> SUPPORTED_TYPES = Set.of("image/png", "image/jpeg");
+    private static final int MAX_METADATA_LENGTH = 255;
 
     private final ArtworkRepository repository;
     private final ObjectStorage storage;
+    private final TransactionTemplate transactions;
     private final long maxBytes;
 
     ArtworkService(ArtworkRepository repository, ObjectStorage storage,
+            PlatformTransactionManager transactionManager,
             @Value("${canvas.upload-max-size}") DataSize maximumSize) {
         this.repository = repository;
         this.storage = storage;
+        this.transactions = new TransactionTemplate(transactionManager);
         this.maxBytes = maximumSize.toBytes();
     }
 
-    @Transactional
     public ArtworkDetail upload(MultipartFile image, String title, String credit, String context) {
-        String normalizedTitle = required(title, "title");
-        String normalizedCredit = required(credit, "credit");
+        String normalizedTitle = requiredMetadata(title, "title", "Title");
+        String normalizedCredit = requiredMetadata(credit, "credit", "Artist or display credit");
         validateImage(image);
 
         ObjectStorage.StoredObject stored;
         try (InputStream content = image.getInputStream()) {
             stored = storage.put(content, image.getSize(), image.getContentType());
         } catch (IOException | RuntimeException error) {
-            throw new ArtworkProblem("storage_unavailable", "Artwork storage is unavailable.", error);
+            throw new ArtworkProblem("storage_unavailable", "Artwork storage is unavailable.", "image", error);
         }
 
         try {
-            Artwork artwork = repository.saveAndFlush(new Artwork(normalizedTitle, normalizedCredit,
-                    blankToNull(context), image.getContentType(), image.getSize(), stored.objectKey()));
+            Artwork artwork = Objects.requireNonNull(transactions.execute(status -> repository.saveAndFlush(
+                    new Artwork(normalizedTitle, normalizedCredit, blankToNull(context), image.getContentType(),
+                            image.getSize(), stored.objectKey()))));
             return ArtworkDetail.from(artwork);
         } catch (RuntimeException persistenceFailure) {
             try {
@@ -59,7 +66,8 @@ public class ArtworkService {
                 log.error("Failed to delete object after artwork persistence failure", compensationFailure);
             }
             log.error("Failed to persist uploaded artwork metadata", persistenceFailure);
-            throw new ArtworkProblem("persistence_unavailable", "Artwork metadata could not be saved.", persistenceFailure);
+            throw new ArtworkProblem("persistence_unavailable", "Artwork metadata could not be saved.", "image",
+                    persistenceFailure);
         }
     }
 
@@ -76,29 +84,33 @@ public class ArtworkService {
 
     private void validateImage(MultipartFile image) {
         if (image == null || image.isEmpty()) {
-            throw new ArtworkProblem("image_required", "Choose a PNG or JPEG image.");
+            throw new ArtworkProblem("image_required", "Choose a PNG or JPEG image.", "image");
         }
         if (!SUPPORTED_TYPES.contains(image.getContentType())) {
-            throw new ArtworkProblem("unsupported_media_type", "Only PNG and JPEG images are supported.");
+            throw new ArtworkProblem("unsupported_media_type", "Only PNG and JPEG images are supported.", "image");
         }
         if (image.getSize() > maxBytes) {
-            throw new ArtworkProblem("image_too_large", "The image exceeds the configured upload limit.");
+            throw new ArtworkProblem("image_too_large", "The image exceeds the configured upload limit.", "image");
         }
         try (InputStream content = image.getInputStream()) {
             BufferedImage decoded = ImageIO.read(content);
             if (decoded == null) {
-                throw new ArtworkProblem("invalid_image", "The uploaded file is not a decodable image.");
+                throw new ArtworkProblem("invalid_image", "The uploaded file is not a decodable image.", "image");
             }
         } catch (IOException error) {
-            throw new ArtworkProblem("invalid_image", "The uploaded file is not a decodable image.", error);
+            throw new ArtworkProblem("invalid_image", "The uploaded file is not a decodable image.", "image", error);
         }
     }
 
-    private static String required(String value, String field) {
+    private static String requiredMetadata(String value, String field, String label) {
         if (value == null || value.isBlank()) {
-            throw new ArtworkProblem("invalid_request", field + " is required.");
+            throw new ArtworkProblem("invalid_request", label + " is required.", field);
         }
-        return value.trim();
+        String normalized = value.trim();
+        if (normalized.length() > MAX_METADATA_LENGTH) {
+            throw new ArtworkProblem(field + "_too_long", label + " must be 255 characters or fewer.", field);
+        }
+        return normalized;
     }
 
     private static String blankToNull(String value) {
@@ -107,9 +119,16 @@ public class ArtworkService {
 
     public static class ArtworkProblem extends RuntimeException {
         private final String code;
+        private final String field;
 
-        ArtworkProblem(String code, String message) { super(message); this.code = code; }
-        ArtworkProblem(String code, String message, Throwable cause) { super(message, cause); this.code = code; }
+        ArtworkProblem(String code, String message) { this(code, message, null, null); }
+        ArtworkProblem(String code, String message, String field) { this(code, message, field, null); }
+        ArtworkProblem(String code, String message, String field, Throwable cause) {
+            super(message, cause);
+            this.code = code;
+            this.field = field;
+        }
         public String getCode() { return code; }
+        public String getField() { return field; }
     }
 }

@@ -7,6 +7,7 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 
 @RestControllerAdvice
 public class ApiExceptionHandler {
@@ -15,7 +16,8 @@ public class ApiExceptionHandler {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST,
                 "Image exceeds the configured upload size limit.");
         problem.setTitle("Invalid artwork upload");
-        problem.setProperty("code", "image_too_large");
+        problem.setProperty("code", "file_too_large");
+        problem.setProperty("field", "image");
         return problem;
     }
 
@@ -29,6 +31,9 @@ public class ApiExceptionHandler {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(status, error.getMessage());
         problem.setTitle(status == HttpStatus.BAD_REQUEST ? "Invalid artwork upload" : status.getReasonPhrase());
         problem.setProperty("code", error.getCode());
+        if (error.getField() != null) {
+            problem.setProperty("field", error.getField());
+        }
         return problem;
     }
 
@@ -38,6 +43,17 @@ public class ApiExceptionHandler {
                 error.getParameterName() + " is required.");
         problem.setTitle("Invalid artwork upload");
         problem.setProperty("code", "invalid_request");
+        problem.setProperty("field", error.getParameterName());
+        return problem;
+    }
+
+    @ExceptionHandler(MissingServletRequestPartException.class)
+    ProblemDetail missingPart(MissingServletRequestPartException error) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST,
+                error.getRequestPartName() + " is required.");
+        problem.setTitle("Invalid artwork upload");
+        problem.setProperty("code", "invalid_request");
+        problem.setProperty("field", error.getRequestPartName());
         return problem;
     }
 }

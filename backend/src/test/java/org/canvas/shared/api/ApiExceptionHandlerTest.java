@@ -15,6 +15,8 @@ class ApiExceptionHandlerTest {
 
         assertThat(problem.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST.value());
         assertThat(problem.getTitle()).isEqualTo("Invalid artwork upload");
-        assertThat(problem.getProperties()).containsEntry("code", "image_too_large");
+        assertThat(problem.getProperties())
+                .containsEntry("code", "file_too_large")
+                .containsEntry("field", "image");
     }
 }
