@@ -25,6 +25,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.boot.tomcat.autoconfigure.TomcatServerProperties;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.TestPropertySource;
@@ -38,7 +39,8 @@ import org.springframework.test.web.servlet.MockMvc;
 @TestPropertySource(properties = {
         "canvas.admin.username=admin",
         "canvas.admin.password-hash={noop}password",
-        "canvas.upload-max-size=1KB"
+        "canvas.upload-max-size=1KB",
+        "CANVAS_MAX_SWALLOW_SIZE=16MB"
 })
 class ArtworkApiTest {
     @Autowired
@@ -49,6 +51,9 @@ class ArtworkApiTest {
 
     @Autowired
     MultipartConfigElement multipartConfig;
+
+    @Autowired
+    TomcatServerProperties tomcatServerProperties;
 
     @MockitoBean
     ObjectStorage storage;
@@ -64,6 +69,12 @@ class ArtworkApiTest {
     void servletUsesTheConfiguredUploadLimit() {
         org.assertj.core.api.Assertions.assertThat(multipartConfig.getMaxFileSize()).isEqualTo(1024);
         org.assertj.core.api.Assertions.assertThat(multipartConfig.getMaxRequestSize()).isGreaterThan(1024);
+    }
+
+    @Test
+    void tomcatUsesTheConfiguredFiniteSwallowLimit() {
+        org.assertj.core.api.Assertions.assertThat(tomcatServerProperties.getMaxSwallowSize().toMegabytes())
+                .isEqualTo(16);
     }
 
     @Test

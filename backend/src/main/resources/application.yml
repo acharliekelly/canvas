@@ -20,7 +20,7 @@ management:
 
 server:
   tomcat:
-    max-swallow-size: -1B
+    max-swallow-size: ${CANVAS_MAX_SWALLOW_SIZE:16MB}
 
 canvas:
   admin:

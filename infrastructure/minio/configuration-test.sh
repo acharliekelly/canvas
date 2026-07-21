@@ -3,8 +3,10 @@ set -eu
 
 repository_root=$(CDPATH= cd -- "$(dirname "$0")/../.." && pwd)
 test_bucket=canvas-config-test
+test_swallow_size=20MB
 
-CANVAS_ORIGINALS_BUCKET="$test_bucket" docker compose --project-directory "$repository_root" \
+CANVAS_ORIGINALS_BUCKET="$test_bucket" CANVAS_MAX_SWALLOW_SIZE="$test_swallow_size" \
+    docker compose --project-directory "$repository_root" \
     -f "$repository_root/compose.yaml" config --format json \
     | node -e '
 let input = "";
@@ -12,8 +14,10 @@ process.stdin.on("data", chunk => input += chunk);
 process.stdin.on("end", () => {
   const services = JSON.parse(input).services;
   const expected = "canvas-config-test";
+  const expectedSwallowSize = "20MB";
   if (services.backend.environment.CANVAS_ORIGINALS_BUCKET !== expected
-      || services["minio-init"].environment.CANVAS_ORIGINALS_BUCKET !== expected) {
+      || services["minio-init"].environment.CANVAS_ORIGINALS_BUCKET !== expected
+      || services.backend.environment.CANVAS_MAX_SWALLOW_SIZE !== expectedSwallowSize) {
     process.exit(1);
   }
 });'
