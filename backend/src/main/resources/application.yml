@@ -24,3 +24,9 @@ canvas:
   public-base-url: ${CANVAS_PUBLIC_BASE_URL:http://localhost:5173}
   upload-max-size: ${CANVAS_UPLOAD_MAX_SIZE:10MB}
   caption-worker-url: ${CANVAS_CAPTION_WORKER_URL:http://localhost:8000}
+  storage:
+    endpoint: ${CANVAS_S3_ENDPOINT:http://localhost:9000}
+    access-key: ${MINIO_ROOT_USER:canvas-minio}
+    secret-key: ${MINIO_ROOT_PASSWORD:canvas-minio-local-password}
+    region: ${CANVAS_S3_REGION:us-east-1}
+    originals-bucket: ${CANVAS_ORIGINALS_BUCKET:canvas-originals}

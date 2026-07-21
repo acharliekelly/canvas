@@ -8,11 +8,13 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
-import org.canvas.shared.config.SecurityConfiguration;
+import org.canvas.identity.SecurityConfiguration;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.context.ActiveProfiles;
 
 @WebMvcTest(HealthController.class)
 @Import(SecurityConfiguration.class)
+@ActiveProfiles("test")
 class HealthControllerTest {
     @Autowired
     MockMvc mvc;

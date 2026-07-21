@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 
+import { SessionProvider } from "./auth/SessionProvider";
+
 type Readiness = "checking" | "ready" | "unavailable";
 
 export default function App() {
@@ -35,6 +37,7 @@ export default function App() {
       <h1>CANVAS</h1>
       <p>Captioning and Narration for Visual Accessibility Services</p>
       <p role="status">{readinessMessage(readiness)}</p>
+      <SessionProvider />
     </main>
   );
 }

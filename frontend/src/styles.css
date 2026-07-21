@@ -18,3 +18,51 @@ main {
   outline: 3px solid #005fcc;
   outline-offset: 3px;
 }
+
+.admin-layout {
+  display: grid;
+  gap: 2.5rem;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
+}
+
+.field {
+  display: grid;
+  gap: 0.35rem;
+  margin-block: 1rem;
+}
+
+input,
+textarea,
+button {
+  box-sizing: border-box;
+  font: inherit;
+  padding: 0.65rem;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: wait;
+}
+
+.error-summary {
+  border-left: 0.35rem solid #a61b1b;
+  background: #fff1f1;
+  padding: 1rem;
+}
+
+.artwork-list {
+  list-style: none;
+  padding: 0;
+}
+
+.artwork-list li {
+  border-bottom: 1px solid #89939e;
+  padding-block: 0.75rem;
+}
+
+.status-label {
+  font-weight: 700;
+}

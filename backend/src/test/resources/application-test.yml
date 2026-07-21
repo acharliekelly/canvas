@@ -1,3 +1,19 @@
 spring:
   main:
     banner-mode: "off"
+  datasource:
+    url: jdbc:h2:mem:canvas;MODE=PostgreSQL;DB_CLOSE_DELAY=-1
+    username: sa
+    password:
+
+canvas:
+  admin:
+    username: admin
+    password-hash: "{noop}password"
+  upload-max-size: 10MB
+  storage:
+    endpoint: http://localhost:9000
+    access-key: test
+    secret-key: test-secret
+    region: us-east-1
+    originals-bucket: canvas-originals

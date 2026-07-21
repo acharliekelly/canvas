@@ -65,6 +65,11 @@ services:
       CANVAS_PUBLIC_BASE_URL: ${CANVAS_PUBLIC_BASE_URL:-http://localhost:5173}
       CANVAS_UPLOAD_MAX_SIZE: ${CANVAS_UPLOAD_MAX_SIZE:-10MB}
       CANVAS_CAPTION_WORKER_URL: ${CANVAS_CAPTION_WORKER_URL:-http://caption-worker:8000}
+      CANVAS_S3_ENDPOINT: http://minio:9000
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-canvas-minio}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-canvas-minio-local-password}
+      CANVAS_S3_REGION: ${CANVAS_S3_REGION:-us-east-1}
+      CANVAS_ORIGINALS_BUCKET: ${CANVAS_ORIGINALS_BUCKET:-canvas-originals}
     depends_on:
       postgres:
         condition: service_healthy

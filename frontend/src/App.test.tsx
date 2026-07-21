@@ -7,7 +7,12 @@ describe("App", () => {
   afterEach(() => vi.unstubAllGlobals());
 
   it("shows the application and backend status", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ status: "ready" }), { status: 200 })));
+    vi.stubGlobal("fetch", vi.fn().mockImplementation((input: RequestInfo | URL) => {
+      const body = String(input).endsWith("/api/session")
+        ? { authenticated: false, username: null, csrfToken: "test-token" }
+        : { status: "ready" };
+      return Promise.resolve(new Response(JSON.stringify(body), { status: 200 }));
+    }));
     render(<App />);
 
     expect(screen.getByRole("heading", { name: "CANVAS" })).toBeVisible();
