@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
+import { StrictMode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { apiFetch } from "../api/client";
@@ -35,6 +36,17 @@ describe("CaptionRequestPanel", () => {
     await act(() => vi.advanceTimersByTimeAsync(10000));
     expect(mockedApiFetch).toHaveBeenCalledTimes(3);
     expect(screen.getByRole("button", { name: "Retry placeholder generation" })).toBeVisible();
+  });
+
+  it("continues handling requests after the Strict Mode effect cleanup cycle", async () => {
+    mockedApiFetch.mockResolvedValueOnce(job("PENDING"));
+    render(<StrictMode><CaptionRequestPanel artworkId="artwork-1" onGenerated={vi.fn()} /></StrictMode>);
+
+    fireEvent.click(screen.getByRole("button", { name: "Generate placeholder draft" }));
+    await act(() => Promise.resolve());
+
+    expect(screen.getByRole("status")).toHaveTextContent("Placeholder generation pending");
+    expect(screen.getByRole("button", { name: "Generate placeholder draft" })).toBeDisabled();
   });
 
   it("adds the generated description and focuses its heading on success", async () => {

@@ -26,6 +26,7 @@ export function DescriptionEditor({ artworkId, artworkVersion: initialArtworkVer
   const [status, setStatus] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [approvalId, setApprovalId] = useState<string | null>(null);
+  const knownDescriptionIds = useRef(new Set(initialDescriptions.map((item) => item.descriptionId)));
   const errorRef = useRef<HTMLDivElement>(null);
   const statusRef = useRef<HTMLParagraphElement>(null);
   const approveButtons = useRef<Record<string, HTMLButtonElement | null>>({});
@@ -56,6 +57,7 @@ export function DescriptionEditor({ artworkId, artworkVersion: initialArtworkVer
     setBusyId("new");
     void apiFetch<DescriptionResponse>(`/api/artworks/${artworkId}/descriptions`, jsonRequest("POST", { label, text }))
       .then((created) => {
+        knownDescriptionIds.current.add(created.descriptionId);
         setDescriptions((current) => ordered([...current, created]));
         setEdits((current) => ({ ...current, [created.descriptionId]: revisionFields(created) }));
         setArtworkVersion((current) => current + 1);
@@ -148,12 +150,14 @@ export function DescriptionEditor({ artworkId, artworkVersion: initialArtworkVer
   }
 
   function addGeneratedDescription(generated: DescriptionResponse) {
+    const alreadyPresent = knownDescriptionIds.current.has(generated.descriptionId);
+    knownDescriptionIds.current.add(generated.descriptionId);
     setDescriptions((current) => ordered([
       ...current.filter((item) => item.descriptionId !== generated.descriptionId),
       generated,
     ]));
     setEdits((current) => ({ ...current, [generated.descriptionId]: revisionFields(generated) }));
-    setArtworkVersion((current) => current + 1);
+    if (!alreadyPresent) setArtworkVersion((current) => current + 1);
   }
 
   return (

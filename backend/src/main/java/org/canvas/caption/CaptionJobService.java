@@ -32,14 +32,17 @@ public class CaptionJobService {
                 .orElseThrow(() -> new CaptionProblem("artwork_not_found", "Artwork was not found."));
         CaptionJob latest = repository.findTopByArtworkIdOrderByAttemptCountDesc(artworkId).orElse(null);
         CaptionJob selected;
+        boolean needsSubmission = false;
         if (latest == null) {
             selected = repository.saveAndFlush(new CaptionJob(artwork, 1));
+            needsSubmission = true;
         } else if (latest.getState() == CaptionJob.State.FAILED) {
             selected = repository.saveAndFlush(new CaptionJob(artwork, latest.getAttemptCount() + 1));
+            needsSubmission = true;
         } else {
             selected = latest;
         }
-        if (autoSubmit && selected.getState() == CaptionJob.State.PENDING) {
+        if (autoSubmit && needsSubmission) {
             submitAfterCommit(selected.getId());
         }
         return CaptionJobResponse.from(selected);

@@ -73,6 +73,35 @@ describe("DescriptionEditor", () => {
       }) }));
   });
 
+  it("does not advance the artwork version when an idempotent caption result already exists", async () => {
+    const user = userEvent.setup();
+    const objective = description("objective", "Objective", "A blue square.", 0);
+    const generated = {
+      ...description("generated", "Placeholder draft", "Metadata-only demo text.", 1),
+      source: "GENERATED" as const,
+    };
+    mockedApiFetch
+      .mockResolvedValueOnce({
+        jobId: "job-1", artworkId: "artwork-1", state: "SUCCEEDED", attemptCount: 1,
+        errorMessage: null, resultingDescriptionId: "generated", version: 2,
+        createdAt: "2026-07-21T12:00:00Z", startedAt: "2026-07-21T12:00:01Z",
+        completedAt: "2026-07-21T12:00:02Z", updatedAt: "2026-07-21T12:00:02Z",
+      })
+      .mockResolvedValueOnce([objective, generated])
+      .mockResolvedValueOnce([{ ...generated, displayOrder: 0 }, { ...objective, displayOrder: 1 }]);
+    render(<DescriptionEditor artworkId="artwork-1" artworkVersion={4}
+      initialDescriptions={[objective, generated]} />);
+
+    await user.click(screen.getByRole("button", { name: "Generate placeholder draft" }));
+    expect(await screen.findByText("Placeholder draft added")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Move Objective down" }));
+
+    expect(mockedApiFetch).toHaveBeenNthCalledWith(3, "/api/artworks/artwork-1/description-order",
+      expect.objectContaining({ body: JSON.stringify({
+        descriptionIds: ["generated", "objective"], version: 4,
+      }) }));
+  });
+
   it("saves draft changes without replacing the card", async () => {
     const user = userEvent.setup();
     const initial = description("objective", "Objective", "A blue square.", 0);

@@ -20,6 +20,7 @@ import javax.imageio.ImageIO;
 import org.canvas.artwork.ArtworkRepository;
 import org.canvas.description.DescriptionRepository;
 import org.canvas.storage.ObjectStorage;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -48,14 +49,17 @@ class CaptionJobIntegrationTest {
     @MockitoBean ObjectStorage storage;
 
     @BeforeEach
-    void cleanDatabase() {
-        jobs.deleteAll();
-        descriptions.deleteAll();
-        artworks.deleteAll();
+    void setUp() {
+        cleanDatabase();
         when(storage.put(any(), anyLong(), anyString()))
                 .thenAnswer(invocation -> new ObjectStorage.StoredObject("originals/" + UUID.randomUUID()));
         when(client.caption(any())).thenReturn(new CaptionClient.CaptionResponse(
                 "Placeholder draft", "Metadata-only demo text.", "deterministic-placeholder", "1"));
+    }
+
+    @AfterEach
+    void tearDown() {
+        cleanDatabase();
     }
 
     @Test
@@ -112,5 +116,11 @@ class CaptionJobIntegrationTest {
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
         ImageIO.write(image, "png", bytes);
         return new MockMultipartFile("image", "art.png", MediaType.IMAGE_PNG_VALUE, bytes.toByteArray());
+    }
+
+    private void cleanDatabase() {
+        jobs.deleteAll();
+        descriptions.deleteAll();
+        artworks.deleteAll();
     }
 }

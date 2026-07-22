@@ -1,6 +1,7 @@
 package org.canvas.caption;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.Executor;
 import org.canvas.caption.CaptionClient.CaptionRequest;
@@ -11,6 +12,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -42,8 +45,25 @@ public class CaptionJobRunner {
             executor.execute(() -> run(jobId));
         } catch (java.util.concurrent.RejectedExecutionException error) {
             log.warn("Caption job rejected by bounded executor jobId={}", jobId);
-            fail(jobId);
+            reject(jobId);
         }
+    }
+
+    @EventListener(ApplicationReadyEvent.class)
+    void recoverIncompleteJobs() {
+        List<UUID> jobIds = transactions.execute(status -> {
+            List<CaptionJob> incomplete = repository.findAllByStateInForUpdate(
+                    List.of(CaptionJob.State.PENDING, CaptionJob.State.RUNNING));
+            Instant now = Instant.now();
+            incomplete.forEach(job -> job.resetForRecovery(now));
+            repository.flush();
+            return incomplete.stream().map(CaptionJob::getId).toList();
+        });
+        if (jobIds == null || jobIds.isEmpty()) {
+            return;
+        }
+        log.info("Recovering incomplete caption jobs count={}", jobIds.size());
+        jobIds.forEach(this::submit);
     }
 
     public void run(UUID jobId) {
@@ -96,6 +116,15 @@ public class CaptionJobRunner {
             CaptionJob job = repository.findByIdForUpdate(jobId).orElse(null);
             if (job != null) {
                 job.fail(SAFE_FAILURE, Instant.now());
+                repository.saveAndFlush(job);
+            }
+        });
+    }
+
+    private void reject(UUID jobId) {
+        transactions.executeWithoutResult(status -> {
+            CaptionJob job = repository.findByIdForUpdate(jobId).orElse(null);
+            if (job != null && job.rejectIfPending(SAFE_FAILURE, Instant.now())) {
                 repository.saveAndFlush(job);
             }
         });

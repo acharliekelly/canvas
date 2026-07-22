@@ -17,10 +17,13 @@ export function CaptionRequestPanel({ artworkId, onGenerated }: {
   const focusTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mounted = useRef(true);
 
-  useEffect(() => () => {
-    mounted.current = false;
-    if (timer.current) clearTimeout(timer.current);
-    if (focusTimer.current) clearTimeout(focusTimer.current);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      if (timer.current) clearTimeout(timer.current);
+      if (focusTimer.current) clearTimeout(focusTimer.current);
+    };
   }, []);
 
   function request() {

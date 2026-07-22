@@ -98,6 +98,23 @@ public class CaptionJob {
         touch(now);
     }
 
+    boolean rejectIfPending(String safeMessage, Instant now) {
+        if (state != State.PENDING) {
+            return false;
+        }
+        fail(safeMessage, now);
+        return true;
+    }
+
+    void resetForRecovery(Instant now) {
+        if (state != State.RUNNING) {
+            return;
+        }
+        state = State.PENDING;
+        startedAt = null;
+        touch(now);
+    }
+
     private void requireState(State expected) {
         if (state != expected) {
             throw new IllegalStateException("Caption job cannot transition from " + state + ".");
