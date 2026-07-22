@@ -1,0 +1,156 @@
+package org.canvas.publication.asset;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import java.io.ByteArrayInputStream;
+import java.net.URI;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.util.HexFormat;
+import java.util.UUID;
+import javax.imageio.ImageIO;
+import javax.sound.sampled.AudioSystem;
+import org.canvas.publication.asset.AudioGenerator.ApprovedDescriptionInput;
+import org.canvas.publication.asset.AudioGenerator.GeneratedBinary;
+import org.canvas.storage.ObjectStorage;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
+
+@SpringBootTest
+@ActiveProfiles("test")
+class AssetServiceTest {
+    private static final UUID REVISION_ID = UUID.fromString("b6f0ca24-5cb2-4f50-b749-c534eb74e14d");
+    private static final URI PUBLIC_URI = URI.create("https://canvas.example/artworks/blue-study-123");
+    private static final byte[] AUDIO = "RIFF-test-WAVE".getBytes(StandardCharsets.US_ASCII);
+    private static final byte[] QR = "png-test".getBytes(StandardCharsets.US_ASCII);
+
+    @Autowired AssetService assets;
+    @Autowired GeneratedAssetRepository repository;
+    @Autowired PlatformTransactionManager transactionManager;
+
+    @MockitoBean AudioGenerator audioGenerator;
+    @MockitoBean QrCodeGenerator qrCodeGenerator;
+    @MockitoBean ObjectStorage storage;
+
+    @BeforeEach
+    void cleanDatabaseAndConfigureGenerators() {
+        repository.deleteAll();
+        when(audioGenerator.cacheNamespace()).thenReturn("placeholder-audio-v1");
+        when(qrCodeGenerator.cacheNamespace()).thenReturn("zxing-qr-v1");
+        when(audioGenerator.generate(any())).thenReturn(
+                new GeneratedBinary(AUDIO, "audio/wav", "placeholder-audio-v1"));
+        when(qrCodeGenerator.generate(any())).thenReturn(
+                new GeneratedBinary(QR, "image/png", "zxing-qr-v1"));
+        when(storage.putGenerated(anyString(), any(), anyLong(), anyString())).thenAnswer(invocation ->
+                new ObjectStorage.StoredObject(invocation.getArgument(0)));
+    }
+
+    @Test
+    void usesSha256ContentKeysAndReusesAudioForTheSameApprovedRevisionInput() {
+        ApprovedDescriptionInput input = new ApprovedDescriptionInput(
+                REVISION_ID, "Objective", "A blue square.");
+
+        GeneratedAsset first = assets.audioFor(input);
+        GeneratedAsset repeated = assets.audioFor(input);
+
+        assertThat(first.getInputKey()).isEqualTo(sha256(
+                "placeholder-audio-v1\n" + REVISION_ID + "\nObjective\nA blue square."));
+        assertThat(first.getInputKey()).matches("[0-9a-f]{64}");
+        assertThat(first.getObjectKey()).isEqualTo("generated/audio/" + first.getInputKey() + ".wav");
+        assertThat(repeated.getId()).isEqualTo(first.getId());
+        assertThat(repository.count()).isOne();
+        verify(audioGenerator, times(1)).generate(input);
+        verify(storage, times(1)).putGenerated(anyString(), any(), anyLong(), anyString());
+    }
+
+    @Test
+    void changedApprovedRevisionInputCreatesReplacementAudioWithoutDeletingHistory() {
+        GeneratedAsset original = assets.audioFor(new ApprovedDescriptionInput(
+                REVISION_ID, "Objective", "A blue square."));
+        GeneratedAsset replacement = assets.audioFor(new ApprovedDescriptionInput(
+                UUID.fromString("f18fcb1b-acde-4977-89e8-a58708f34487"),
+                "Objective", "A cobalt square."));
+
+        assertThat(replacement.getId()).isNotEqualTo(original.getId());
+        assertThat(replacement.getInputKey()).isNotEqualTo(original.getInputKey());
+        assertThat(repository.count()).isEqualTo(2);
+        verify(audioGenerator, times(2)).generate(any());
+    }
+
+    @Test
+    void reusesOneQrAssetForTheStablePublicUrlAcrossPublications() {
+        GeneratedAsset first = assets.qrFor(PUBLIC_URI,
+                UUID.fromString("8d5e32ca-86f2-45da-a987-f8c7d5c37060"));
+        GeneratedAsset repeated = assets.qrFor(PUBLIC_URI,
+                UUID.fromString("2c205ea2-7254-4a11-ae15-41c657d49b5d"));
+
+        assertThat(repeated.getId()).isEqualTo(first.getId());
+        assertThat(repository.count()).isOne();
+        verify(qrCodeGenerator, times(1)).generate(PUBLIC_URI);
+    }
+
+    @Test
+    void deletesNewStorageObjectWhenTheSurroundingTransactionRollsBack() {
+        TransactionTemplate transaction = new TransactionTemplate(transactionManager);
+
+        assertThatThrownBy(() -> transaction.executeWithoutResult(ignored -> {
+            assets.audioFor(new ApprovedDescriptionInput(
+                    REVISION_ID, "Objective", "A blue square."));
+            throw new IllegalStateException("later publication persistence failed");
+        })).isInstanceOf(IllegalStateException.class);
+
+        assertThat(repository.count()).isZero();
+        verify(storage).delete("generated/audio/" + sha256(
+                "placeholder-audio-v1\n" + REVISION_ID + "\nObjective\nA blue square.") + ".wav");
+    }
+
+    @Test
+    void checkedInPlaceholderIsAReadableWaveFileAndIdentifiesItsAdapter() throws Exception {
+        GeneratedBinary generated = new PlaceholderAudioGenerator().generate(
+                new ApprovedDescriptionInput(REVISION_ID, "Objective", "A blue square."));
+
+        assertThat(generated.mediaType()).isEqualTo("audio/wav");
+        assertThat(generated.generator()).isEqualTo("placeholder-audio-v1");
+        assertThat(generated.bytes()).startsWith("RIFF".getBytes(StandardCharsets.US_ASCII));
+        assertThat(new String(generated.bytes(), 8, 4, StandardCharsets.US_ASCII)).isEqualTo("WAVE");
+        assertThat(AudioSystem.getAudioInputStream(new ByteArrayInputStream(generated.bytes()))
+                .getFormat().getSampleRate()).isPositive();
+    }
+
+    @Test
+    void qrGeneratorProducesAHighContrastPngWithAQuietZoneAndDecodableStableUrl() throws Exception {
+        GeneratedBinary generated = new ZxingQrCodeGenerator().generate(PUBLIC_URI);
+        var image = ImageIO.read(new ByteArrayInputStream(generated.bytes()));
+
+        assertThat(generated.mediaType()).isEqualTo("image/png");
+        assertThat(generated.generator()).isEqualTo("zxing-qr-v1");
+        assertThat(image.getWidth()).isEqualTo(320);
+        assertThat(image.getHeight()).isEqualTo(320);
+        assertThat(image.getRGB(0, 0) & 0x00ffffff).isEqualTo(0x00ffffff);
+        assertThat(image.getRGB(image.getWidth() - 1, image.getHeight() - 1) & 0x00ffffff)
+                .isEqualTo(0x00ffffff);
+        assertThat(QrTestDecoder.decode(generated.bytes())).isEqualTo(PUBLIC_URI.toASCIIString());
+    }
+
+    private static String sha256(String value) {
+        try {
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
+                    .digest(value.getBytes(StandardCharsets.UTF_8)));
+        } catch (Exception impossible) {
+            throw new IllegalStateException(impossible);
+        }
+    }
+}

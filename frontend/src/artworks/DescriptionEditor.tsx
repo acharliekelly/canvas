@@ -13,10 +13,11 @@ interface DraftFields {
 }
 
 export function DescriptionEditor({ artworkId, artworkVersion: initialArtworkVersion,
-  initialDescriptions }: {
+  initialDescriptions, artworkTitle = "this artwork" }: {
   artworkId: string;
   artworkVersion: number;
   initialDescriptions: DescriptionResponse[];
+  artworkTitle?: string;
 }) {
   const [descriptions, setDescriptions] = useState(() => ordered(initialDescriptions));
   const [artworkVersion, setArtworkVersion] = useState(initialArtworkVersion);
@@ -166,7 +167,8 @@ export function DescriptionEditor({ artworkId, artworkVersion: initialArtworkVer
     <section aria-labelledby="descriptions-heading" className="description-editor">
       <h2 id="descriptions-heading">Descriptions</h2>
       <p>Add one or more descriptions using your organization&apos;s preferred labels.</p>
-      <PublishPanel artworkId={artworkId} artworkVersion={artworkVersion} descriptions={descriptions}
+      <PublishPanel artworkId={artworkId} artworkTitle={artworkTitle} artworkVersion={artworkVersion}
+        descriptions={descriptions}
         onPublished={setArtworkVersion} />
       <CaptionRequestPanel artworkId={artworkId} onGenerated={addGeneratedDescription} />
       {error && <div id="description-error-summary" className="error-summary" role="alert" tabIndex={-1} ref={errorRef}>

@@ -5,6 +5,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.startsWith;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.awt.image.BufferedImage;
@@ -21,6 +23,7 @@ import org.canvas.description.api.DescriptionResponse;
 import org.canvas.publication.PublicationService.PublicationNotAllowed;
 import org.canvas.publication.PublicationService.PublicationProblem;
 import org.canvas.publication.PublicationService.PublicationResult;
+import org.canvas.publication.asset.GeneratedAssetRepository;
 import org.canvas.storage.ObjectStorage;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.AfterEach;
@@ -54,16 +57,22 @@ class PublicationServiceTest {
     @Autowired
     ArtworkRepository artworkRepository;
 
+    @Autowired
+    GeneratedAssetRepository assetRepository;
+
     @MockitoBean
     ObjectStorage storage;
 
     @BeforeEach
     void cleanDatabase() {
+        assetRepository.deleteAll();
         publicationRepository.deleteAll();
         descriptionRepository.deleteAll();
         artworkRepository.deleteAll();
         when(storage.put(any(), anyLong(), anyString()))
                 .thenAnswer(invocation -> new ObjectStorage.StoredObject("originals/" + UUID.randomUUID()));
+        when(storage.putGenerated(anyString(), any(), anyLong(), anyString()))
+                .thenAnswer(invocation -> new ObjectStorage.StoredObject(invocation.getArgument(0)));
     }
 
     @AfterEach
@@ -80,6 +89,26 @@ class PublicationServiceTest {
                 .isInstanceOf(PublicationNotAllowed.class)
                 .hasMessageContaining("Approve at least one description");
         assertThat(publicationRepository.count()).isZero();
+    }
+
+    @Test
+    void assetStorageFailureRollsBackTheSnapshotAndCompensatesEarlierObjects() throws Exception {
+        ArtworkDetail artwork = createArtwork("Storage failure");
+        approve(artwork.id(), descriptionService.createManual(
+                artwork.id(), "Objective", "A blue square."));
+        when(storage.putGenerated(startsWith("generated/qr/"), any(), anyLong(), anyString()))
+                .thenThrow(new IllegalStateException("simulated QR storage failure"));
+
+        assertThatThrownBy(() -> service.publish(
+                artwork.id(), currentVersion(artwork.id()), ADMIN_ID))
+                .isInstanceOf(PublicationProblem.class)
+                .extracting("code")
+                .isEqualTo("asset_generation_unavailable");
+
+        assertThat(publicationRepository.count()).isZero();
+        assertThat(assetRepository.count()).isZero();
+        assertThat(artworkRepository.findById(artwork.id()).orElseThrow().getPublicSlug()).isNull();
+        verify(storage).delete(startsWith("generated/audio/"));
     }
 
     @Test

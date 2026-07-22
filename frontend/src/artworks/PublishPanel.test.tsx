@@ -32,7 +32,7 @@ describe("PublishPanel", () => {
         revision("objective-draft", "Objective", "Unapproved cobalt draft.", "DRAFT")],
     } satisfies DescriptionResponse;
 
-    render(<PublishPanel artworkId="artwork-1" artworkVersion={3}
+    render(<PublishPanel artworkId="artwork-1" artworkTitle="Blue Study" artworkVersion={3}
       descriptions={[objectiveWithDraft, draftDescription(), subjective]} onPublished={vi.fn()} />);
 
     const list = screen.getByRole("list", { name: "Approved descriptions to publish" });
@@ -49,7 +49,7 @@ describe("PublishPanel", () => {
       publicationId: "publication-1", slug: "blue-study-123", publishedAt: "2026-07-21T12:00:00Z",
       artworkVersion: 4, created: true, descriptions: [{ label: "Objective", text: "A blue square." }],
     });
-    render(<PublishPanel artworkId="artwork-1" artworkVersion={3}
+    render(<PublishPanel artworkId="artwork-1" artworkTitle="Blue Study" artworkVersion={3}
       descriptions={[approvedDescription("objective", "Objective", "A blue square.", 0)]}
       onPublished={onPublished} />);
 
@@ -67,6 +67,8 @@ describe("PublishPanel", () => {
     expect(await screen.findByRole("status")).toHaveTextContent("Artwork published");
     expect(screen.getByRole("link", { name: "Open published artwork" }))
       .toHaveAttribute("href", "/artworks/blue-study-123");
+    expect(screen.getByRole("link", { name: "Download QR code for Blue Study" }))
+      .toHaveAttribute("href", "/public/artworks/blue-study-123/qr");
     expect(mockedApiFetch).toHaveBeenCalledWith("/api/artworks/artwork-1/publication", {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ version: 3 }),
     });

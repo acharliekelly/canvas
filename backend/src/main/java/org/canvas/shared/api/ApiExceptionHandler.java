@@ -18,9 +18,10 @@ public class ApiExceptionHandler {
     @ExceptionHandler(PublicationProblem.class)
     ProblemDetail publicationProblem(PublicationProblem error) {
         HttpStatus status = switch (error.getCode()) {
-            case "artwork_not_found", "public_artwork_not_found" -> HttpStatus.NOT_FOUND;
+            case "artwork_not_found", "public_artwork_not_found", "public_asset_not_found" -> HttpStatus.NOT_FOUND;
             case "stale_version" -> HttpStatus.CONFLICT;
-            case "public_image_unavailable" -> HttpStatus.SERVICE_UNAVAILABLE;
+            case "public_image_unavailable", "public_asset_unavailable", "asset_generation_unavailable" ->
+                    HttpStatus.SERVICE_UNAVAILABLE;
             default -> HttpStatus.BAD_REQUEST;
         };
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(status, error.getMessage());

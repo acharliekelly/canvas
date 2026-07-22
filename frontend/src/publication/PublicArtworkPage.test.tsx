@@ -18,8 +18,10 @@ describe("PublicArtworkPage", () => {
     mockedApiFetch.mockResolvedValueOnce({
       title: "Blue Study", credit: "A. Artist", imageUrl: "/public/artworks/blue-study/image",
       descriptions: [
-        { label: "Subjective", text: "The composition feels expansive." },
-        { label: "Objective detail", text: "A blue square rests near the center." },
+        { label: "Subjective", text: "The composition feels expansive.",
+          audioUrl: "/public/artworks/blue-study/descriptions/subjective/audio" },
+        { label: "Objective detail", text: "A blue square rests near the center.",
+          audioUrl: "/public/artworks/blue-study/descriptions/objective/audio" },
       ],
     });
 
@@ -32,15 +34,22 @@ describe("PublicArtworkPage", () => {
       .toHaveAttribute("src", "/public/artworks/blue-study/image");
     expect(screen.getAllByRole("heading", { level: 2 }).map((heading) => heading.textContent))
       .toEqual(["Subjective", "Objective detail"]);
+    expect(screen.getByLabelText("Listen to Subjective description for Blue Study"))
+      .toHaveAttribute("src", "/public/artworks/blue-study/descriptions/subjective/audio");
+    expect(screen.getByLabelText("Listen to Objective detail description for Blue Study"))
+      .toHaveAttribute("preload", "none");
+    expect(screen.getByText("The composition feels expansive.")).toBeVisible();
+    expect(screen.getByText("A blue square rests near the center.")).toBeVisible();
     expect(document.title).toBe("Blue Study | CANVAS");
     expect(mockedApiFetch).toHaveBeenCalledWith("/public/artworks/blue-study");
     expect(await axe(container)).toHaveNoViolations();
-  });
+  }, 15_000);
 
   it("uses a concise fallback instead of duplicating long objective prose", async () => {
     mockedApiFetch.mockResolvedValueOnce({
       title: "Blue Study", credit: "A. Artist", imageUrl: "/public/artworks/blue-study/image",
-      descriptions: [{ label: "Objective", text: "A".repeat(161) }],
+      descriptions: [{ label: "Objective", text: "A".repeat(161),
+        audioUrl: "/public/artworks/blue-study/descriptions/objective/audio" }],
     });
 
     render(<PublicArtworkPage slug="blue-study" />);

@@ -1,6 +1,7 @@
 package org.canvas.publication;
 
 import java.io.InputStream;
+import java.net.URI;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -18,8 +19,12 @@ import org.canvas.description.Description;
 import org.canvas.description.DescriptionRepository;
 import org.canvas.description.DescriptionRevision;
 import org.canvas.description.RevisionState;
+import org.canvas.publication.asset.AssetService;
+import org.canvas.publication.asset.AudioGenerator.ApprovedDescriptionInput;
+import org.canvas.publication.asset.GeneratedAsset;
 import org.canvas.publication.api.PublicArtworkResponse;
 import org.canvas.storage.ObjectStorage;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,13 +36,18 @@ public class PublicationService {
     private final ArtworkRepository artworkRepository;
     private final DescriptionRepository descriptionRepository;
     private final ObjectStorage storage;
+    private final AssetService assets;
+    private final URI publicBaseUri;
 
     PublicationService(PublicationRepository repository, ArtworkRepository artworkRepository,
-            DescriptionRepository descriptionRepository, ObjectStorage storage) {
+            DescriptionRepository descriptionRepository, ObjectStorage storage, AssetService assets,
+            @Value("${canvas.public-base-url}") URI publicBaseUri) {
         this.repository = repository;
         this.artworkRepository = artworkRepository;
         this.descriptionRepository = descriptionRepository;
         this.storage = storage;
+        this.assets = assets;
+        this.publicBaseUri = publicBaseUri;
     }
 
     @Transactional
@@ -59,6 +69,7 @@ public class PublicationService {
         Publication current = repository.findCurrentByArtworkId(artworkId).orElse(null);
         Publication publication = repository.findByArtworkIdAndContentHash(artworkId, hash).orElse(null);
         boolean created = publication == null;
+        String slug = artwork.getPublicSlug() == null ? slugFor(artwork) : artwork.getPublicSlug();
 
         if (created) {
             publication = new Publication(artwork, repository.maximumVersion(artworkId) + 1,
@@ -67,6 +78,17 @@ public class PublicationService {
                 ApprovedSnapshot snapshot = approved.get(index);
                 publication.addDescription(snapshot.revisionId(), index, snapshot.label(), snapshot.text());
             }
+            publication = repository.saveAndFlush(publication);
+        }
+
+        try {
+            for (ApprovedSnapshot snapshot : approved) {
+                assets.audioFor(snapshot.audioInput());
+            }
+            assets.qrFor(publicUri(slug), publication.getId());
+        } catch (RuntimeException error) {
+            throw new PublicationProblem("asset_generation_unavailable",
+                    "Publication assets could not be prepared. Try publishing again.", error);
         }
 
         if (current != null && !current.getId().equals(publication.getId())) {
@@ -76,7 +98,6 @@ public class PublicationService {
         }
         publication.markCurrent();
 
-        String slug = artwork.getPublicSlug() == null ? slugFor(artwork) : artwork.getPublicSlug();
         artwork.markPublished(slug);
         Publication saved = repository.saveAndFlush(publication);
         artworkRepository.saveAndFlush(artwork);
@@ -86,7 +107,7 @@ public class PublicationService {
     @Transactional(readOnly = true)
     public PublicArtworkResponse publicArtwork(String slug) {
         Publication publication = currentBySlug(slug);
-        return PublicArtworkResponse.from(publication, "/public/artworks/" + slug + "/image");
+        return PublicArtworkResponse.from(publication, slug);
     }
 
     @Transactional(readOnly = true)
@@ -99,6 +120,50 @@ public class PublicationService {
             throw new PublicationProblem("public_image_unavailable",
                     "The published artwork image is temporarily unavailable.", error);
         }
+    }
+
+    @Transactional(readOnly = true)
+    public PublicAsset publicAudio(String slug, UUID publishedDescriptionId) {
+        Publication publication = currentBySlug(slug);
+        PublishedDescription description = publication.getDescriptions().stream()
+                .filter(candidate -> candidate.getId().equals(publishedDescriptionId))
+                .findFirst()
+                .orElseThrow(() -> new PublicationProblem("public_asset_not_found",
+                        "Published audio was not found."));
+        try {
+            GeneratedAsset asset = assets.existingAudio(new ApprovedDescriptionInput(
+                    description.getApprovedRevisionId(), description.getLabel(), description.getText()));
+            return publicAsset(asset);
+        } catch (AssetService.AssetProblem error) {
+            throw new PublicationProblem("public_asset_unavailable",
+                    "The published asset is temporarily unavailable.", error);
+        }
+    }
+
+    @Transactional(readOnly = true)
+    public PublicAsset publicQr(String slug) {
+        currentBySlug(slug);
+        try {
+            return publicAsset(assets.existingQr(publicUri(slug)));
+        } catch (AssetService.AssetProblem error) {
+            throw new PublicationProblem("public_asset_unavailable",
+                    "The published asset is temporarily unavailable.", error);
+        }
+    }
+
+    private PublicAsset publicAsset(GeneratedAsset asset) {
+        try {
+            return new PublicAsset(assets.content(asset), asset.getMediaType(), asset.getByteSize(),
+                    asset.getInputKey());
+        } catch (RuntimeException error) {
+            throw new PublicationProblem("public_asset_unavailable",
+                    "The published asset is temporarily unavailable.", error);
+        }
+    }
+
+    private URI publicUri(String slug) {
+        String base = publicBaseUri.toASCIIString().replaceAll("/+$", "");
+        return URI.create(base + "/artworks/" + slug);
     }
 
     private Publication currentBySlug(String slug) {
@@ -178,7 +243,11 @@ public class PublicationService {
         digest.update(bytes);
     }
 
-    private record ApprovedSnapshot(UUID revisionId, String label, String text) {}
+    private record ApprovedSnapshot(UUID revisionId, String label, String text) {
+        ApprovedDescriptionInput audioInput() {
+            return new ApprovedDescriptionInput(revisionId, label, text);
+        }
+    }
 
     public record PublicationResult(UUID publicationId, String slug, Instant publishedAt,
             long artworkVersion, boolean created, List<PublishedDescriptionResult> descriptions) {}
@@ -186,6 +255,8 @@ public class PublicationService {
     public record PublishedDescriptionResult(String label, String text) {}
 
     public record PublicImage(InputStream content, String mediaType, long byteSize) {}
+
+    public record PublicAsset(InputStream content, String mediaType, long byteSize, String inputKey) {}
 
     public static class PublicationProblem extends RuntimeException {
         private final String code;

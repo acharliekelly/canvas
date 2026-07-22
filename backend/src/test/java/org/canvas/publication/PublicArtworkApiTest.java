@@ -21,6 +21,7 @@ import java.util.UUID;
 import javax.imageio.ImageIO;
 import org.canvas.artwork.ArtworkRepository;
 import org.canvas.description.DescriptionRepository;
+import org.canvas.publication.asset.GeneratedAssetRepository;
 import org.canvas.storage.ObjectStorage;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.AfterEach;
@@ -57,16 +58,22 @@ class PublicArtworkApiTest {
     @Autowired
     ArtworkRepository artworkRepository;
 
+    @Autowired
+    GeneratedAssetRepository assetRepository;
+
     @MockitoBean
     ObjectStorage storage;
 
     @BeforeEach
     void cleanDatabase() {
+        assetRepository.deleteAll();
         publicationRepository.deleteAll();
         descriptionRepository.deleteAll();
         artworkRepository.deleteAll();
         when(storage.put(any(), anyLong(), anyString()))
                 .thenAnswer(invocation -> new ObjectStorage.StoredObject("originals/" + UUID.randomUUID()));
+        when(storage.putGenerated(anyString(), any(), anyLong(), anyString()))
+                .thenAnswer(invocation -> new ObjectStorage.StoredObject(invocation.getArgument(0)));
         when(storage.get(anyString())).thenReturn(new ByteArrayInputStream(IMAGE));
     }
 

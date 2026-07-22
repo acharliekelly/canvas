@@ -38,7 +38,7 @@ export function ArtworkEditorPage({ artworkId }: { artworkId: string }) {
         {data.artwork.context && <p>{data.artwork.context}</p>}
       </header>
       <DescriptionEditor artworkId={artworkId} artworkVersion={data.artwork.version}
-        initialDescriptions={data.descriptions} />
+        artworkTitle={data.artwork.title} initialDescriptions={data.descriptions} />
     </div>
   );
 }

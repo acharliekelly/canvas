@@ -19,7 +19,18 @@ public class S3ObjectStorage implements ObjectStorage {
 
     @Override
     public StoredObject put(InputStream content, long byteSize, String mediaType) {
-        String key = "artworks/" + UUID.randomUUID();
+        return putAt("artworks/" + UUID.randomUUID(), content, byteSize, mediaType);
+    }
+
+    @Override
+    public StoredObject putGenerated(String objectKey, InputStream content, long byteSize, String mediaType) {
+        if (!objectKey.matches("generated/(audio|qr)/[0-9a-f]{64}\\.(wav|png)")) {
+            throw new IllegalArgumentException("Generated object key is not content-addressed.");
+        }
+        return putAt(objectKey, content, byteSize, mediaType);
+    }
+
+    private StoredObject putAt(String key, InputStream content, long byteSize, String mediaType) {
         client.putObject(PutObjectRequest.builder()
                         .bucket(bucket)
                         .key(key)

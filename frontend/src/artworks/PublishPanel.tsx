@@ -3,8 +3,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { apiFetch } from "../api/client";
 import type { DescriptionResponse, PublicationResult, PublishedDescription } from "../api/types";
 
-export function PublishPanel({ artworkId, artworkVersion, descriptions, onPublished }: {
+export function PublishPanel({ artworkId, artworkTitle = "this artwork", artworkVersion, descriptions, onPublished }: {
   artworkId: string;
+  artworkTitle?: string;
   artworkVersion: number;
   descriptions: DescriptionResponse[];
   onPublished: (artworkVersion: number) => void;
@@ -55,7 +56,12 @@ export function PublishPanel({ artworkId, artworkVersion, descriptions, onPublis
       <button type="button" ref={publishButtonRef} disabled={approved.length === 0 || publishing}
         onClick={() => setConfirming(true)}>Publish artwork</button>
       {status && <p role="status" aria-live="polite">{status}</p>}
-      {result && <p><a href={`/artworks/${result.slug}`}>Open published artwork</a></p>}
+      {result && <p className="publication-links">
+        <a href={`/artworks/${result.slug}`}>Open published artwork</a>{" "}
+        <a href={`/public/artworks/${result.slug}/qr`} download>
+          Download QR code for {artworkTitle}
+        </a>
+      </p>}
       {confirming && <PublicationDialog publishing={publishing} descriptions={approved} onConfirm={publish}
         onCancel={closeConfirmation} onReturnFocus={restorePublishFocus} />}
     </section>

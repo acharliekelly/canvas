@@ -74,6 +74,8 @@ class PublicationPostgresIntegrationTest {
         jdbc.update("DELETE FROM artworks");
         when(storage.put(any(), anyLong(), anyString()))
                 .thenAnswer(invocation -> new ObjectStorage.StoredObject("originals/" + UUID.randomUUID()));
+        when(storage.putGenerated(anyString(), any(), anyLong(), anyString()))
+                .thenAnswer(invocation -> new ObjectStorage.StoredObject(invocation.getArgument(0)));
     }
 
     @Test

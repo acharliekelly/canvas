@@ -47,6 +47,10 @@ export function PublicArtworkPage({ slug }: { slug: string }) {
       {artwork.descriptions.map((description, index) => <section
         aria-labelledby={`published-description-${index}`} key={`${index}-${description.label}`}>
         <h2 id={`published-description-${index}`}>{description.label}</h2>
+        <audio controls preload="none" src={description.audioUrl}
+          aria-label={`Listen to ${description.label} description for ${artwork.title}`}>
+          Your browser does not support audio playback.
+        </audio>
         <p>{description.text}</p>
       </section>)}
     </div>

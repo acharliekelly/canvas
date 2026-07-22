@@ -82,7 +82,11 @@ export interface PublicArtworkResponse {
   title: string;
   credit: string;
   imageUrl: string;
-  descriptions: PublishedDescription[];
+  descriptions: PublicDescription[];
+}
+
+export interface PublicDescription extends PublishedDescription {
+  audioUrl: string;
 }
 
 export interface ApiProblem {
