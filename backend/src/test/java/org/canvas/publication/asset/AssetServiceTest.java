@@ -12,8 +12,6 @@ import static org.mockito.Mockito.when;
 import java.io.ByteArrayInputStream;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.util.HexFormat;
 import java.util.UUID;
 import javax.imageio.ImageIO;
 import javax.sound.sampled.AudioSystem;
@@ -65,15 +63,33 @@ class AssetServiceTest {
 
         GeneratedAsset first = assets.audioFor(input);
         GeneratedAsset repeated = assets.audioFor(input);
+        GeneratedAsset lookedUp = assets.existingAudio(input);
 
-        assertThat(first.getInputKey()).isEqualTo(sha256(
-                "placeholder-audio-v1\n" + REVISION_ID + "\nObjective\nA blue square."));
+        assertThat(first.getInputKey())
+                .isEqualTo("f35ed7b35b7808a9018522f27830ac06e880ad5ef78890a316acf945263ba564");
         assertThat(first.getInputKey()).matches("[0-9a-f]{64}");
         assertThat(first.getObjectKey()).isEqualTo("generated/audio/" + first.getInputKey() + ".wav");
         assertThat(repeated.getId()).isEqualTo(first.getId());
+        assertThat(lookedUp.getId()).isEqualTo(first.getId());
         assertThat(repository.count()).isOne();
         verify(audioGenerator, times(1)).generate(input);
         verify(storage, times(1)).putGenerated(anyString(), any(), anyLong(), anyString());
+    }
+
+    @Test
+    void audioKeyDoesNotCollideWhenNewlinesAreRepartitionedBetweenLabelAndText() {
+        GeneratedAsset labelContainsNewline = assets.audioFor(new ApprovedDescriptionInput(
+                REVISION_ID, "Objective\nA", "blue"));
+        GeneratedAsset textContainsNewline = assets.audioFor(new ApprovedDescriptionInput(
+                REVISION_ID, "Objective", "A\nblue"));
+
+        assertThat(labelContainsNewline.getInputKey())
+                .isEqualTo("01d5be39591454766e4479cf72cc25514ac2e964d21f312414ad1565482dec61");
+        assertThat(textContainsNewline.getInputKey())
+                .isEqualTo("e0ebc2fce6a72b91cf866893325c2aa9f98884210123c0975929337aa0460634");
+        assertThat(textContainsNewline.getId()).isNotEqualTo(labelContainsNewline.getId());
+        assertThat(repository.count()).isEqualTo(2);
+        verify(audioGenerator, times(2)).generate(any());
     }
 
     @Test
@@ -96,9 +112,13 @@ class AssetServiceTest {
                 UUID.fromString("8d5e32ca-86f2-45da-a987-f8c7d5c37060"));
         GeneratedAsset repeated = assets.qrFor(PUBLIC_URI,
                 UUID.fromString("2c205ea2-7254-4a11-ae15-41c657d49b5d"));
+        GeneratedAsset lookedUp = assets.existingQr(PUBLIC_URI);
 
         assertThat(repeated.getId()).isEqualTo(first.getId());
+        assertThat(lookedUp.getId()).isEqualTo(first.getId());
         assertThat(repository.count()).isOne();
+        assertThat(first.getInputKey())
+                .isEqualTo("ba0d56c362758851b9d9102242eddab32f3e924e0e45ae5be6ec2699a8c4cd23");
         verify(qrCodeGenerator, times(1)).generate(PUBLIC_URI);
     }
 
@@ -113,8 +133,8 @@ class AssetServiceTest {
         })).isInstanceOf(IllegalStateException.class);
 
         assertThat(repository.count()).isZero();
-        verify(storage).delete("generated/audio/" + sha256(
-                "placeholder-audio-v1\n" + REVISION_ID + "\nObjective\nA blue square.") + ".wav");
+        verify(storage).delete("generated/audio/"
+                + "f35ed7b35b7808a9018522f27830ac06e880ad5ef78890a316acf945263ba564.wav");
     }
 
     @Test
@@ -145,12 +165,4 @@ class AssetServiceTest {
         assertThat(QrTestDecoder.decode(generated.bytes())).isEqualTo(PUBLIC_URI.toASCIIString());
     }
 
-    private static String sha256(String value) {
-        try {
-            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
-                    .digest(value.getBytes(StandardCharsets.UTF_8)));
-        } catch (Exception impossible) {
-            throw new IllegalStateException(impossible);
-        }
-    }
 }

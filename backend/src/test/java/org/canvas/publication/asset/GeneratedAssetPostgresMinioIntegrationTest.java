@@ -10,9 +10,17 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.io.ByteArrayInputStream;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import javax.sound.sampled.AudioSystem;
 import org.canvas.artwork.ArtworkRepository;
 import org.canvas.description.DescriptionRepository;
@@ -23,7 +31,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.Primary;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockMultipartFile;
@@ -39,6 +51,7 @@ import org.testcontainers.utility.DockerImageName;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 import software.amazon.awssdk.services.s3.model.S3Exception;
 import tools.jackson.databind.JsonNode;
@@ -47,6 +60,7 @@ import tools.jackson.databind.ObjectMapper;
 @SpringBootTest
 @AutoConfigureMockMvc
 @Testcontainers
+@Import(GeneratedAssetPostgresMinioIntegrationTest.ConcurrentAudioConfiguration.class)
 class GeneratedAssetPostgresMinioIntegrationTest {
     private static final String BUCKET = "canvas-test-generated-assets";
     private static final String MINIO_USER = "canvas-minio";
@@ -91,6 +105,8 @@ class GeneratedAssetPostgresMinioIntegrationTest {
     @Autowired S3Client s3;
     @Autowired JdbcTemplate jdbc;
     @Autowired PublicationService publicationService;
+    @Autowired AssetService assetService;
+    @Autowired CoordinatedAudioGenerator audioGenerator;
     @Autowired GeneratedAssetRepository assetRepository;
     @Autowired PublicationRepository publicationRepository;
     @Autowired DescriptionRepository descriptionRepository;
@@ -109,6 +125,57 @@ class GeneratedAssetPostgresMinioIntegrationTest {
         descriptionRepository.deleteAll();
         artworkRepository.deleteAll();
         storedObjectKeys().forEach(this::deleteObject);
+        audioGenerator.reset();
+    }
+
+    @Test
+    void concurrentAudioCacheMissesLeaveOneReadableCommittedObject() throws Exception {
+        var input = new AudioGenerator.ApprovedDescriptionInput(
+                UUID.fromString("fc246438-a640-4b80-992f-041779010289"),
+                "Objective", "A blue square.");
+        audioGenerator.coordinateNextTwoCalls();
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        CountDownLatch ready = new CountDownLatch(2);
+        CountDownLatch start = new CountDownLatch(1);
+        List<Future<GeneratedAsset>> futures = new ArrayList<>();
+        List<GeneratedAsset> results = new ArrayList<>();
+        List<Throwable> failures = new ArrayList<>();
+
+        try {
+            for (int index = 0; index < 2; index++) {
+                futures.add(executor.submit(() -> {
+                    ready.countDown();
+                    await(ready);
+                    await(start);
+                    return assetService.audioFor(input);
+                }));
+            }
+            assertThat(ready.await(10, TimeUnit.SECONDS)).isTrue();
+            start.countDown();
+            for (Future<GeneratedAsset> future : futures) {
+                try {
+                    results.add(future.get(20, TimeUnit.SECONDS));
+                } catch (ExecutionException error) {
+                    failures.add(error.getCause());
+                }
+            }
+        } finally {
+            start.countDown();
+            executor.shutdownNow();
+        }
+
+        GeneratedAsset committed = assetRepository.findAll().getFirst();
+        byte[] storedAudio = s3.getObjectAsBytes(GetObjectRequest.builder()
+                .bucket(BUCKET).key(committed.getObjectKey()).build()).asByteArray();
+
+        assertThat(failures).isEmpty();
+        assertThat(results).hasSize(2)
+                .extracting(GeneratedAsset::getId).containsOnly(committed.getId());
+        assertThat(assetRepository.count()).isOne();
+        assertThat(storedObjectKeys()).containsExactly(committed.getObjectKey());
+        assertThat(AudioSystem.getAudioInputStream(new ByteArrayInputStream(storedAudio)).getFrameLength())
+                .isPositive();
+        assertThat(audioGenerator.calls()).isOne();
     }
 
     @AfterEach
@@ -248,5 +315,64 @@ class GeneratedAssetPostgresMinioIntegrationTest {
 
     private void deleteObject(String key) {
         s3.deleteObject(DeleteObjectRequest.builder().bucket(BUCKET).key(key).build());
+    }
+
+    private static void await(CountDownLatch latch) {
+        try {
+            if (!latch.await(10, TimeUnit.SECONDS)) {
+                throw new IllegalStateException("Timed out waiting for concurrent asset test coordination.");
+            }
+        } catch (InterruptedException error) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Interrupted while coordinating concurrent asset test.", error);
+        }
+    }
+
+    @TestConfiguration(proxyBeanMethods = false)
+    static class ConcurrentAudioConfiguration {
+        @Bean
+        @Primary
+        CoordinatedAudioGenerator coordinatedAudioGenerator() {
+            return new CoordinatedAudioGenerator();
+        }
+    }
+
+    static final class CoordinatedAudioGenerator implements AudioGenerator {
+        private final PlaceholderAudioGenerator delegate = new PlaceholderAudioGenerator();
+        private final AtomicInteger calls = new AtomicInteger();
+        private volatile CountDownLatch generationBarrier;
+
+        @Override
+        public GeneratedBinary generate(ApprovedDescriptionInput input) {
+            calls.incrementAndGet();
+            CountDownLatch barrier = generationBarrier;
+            if (barrier != null) {
+                barrier.countDown();
+                awaitCompetingGeneration(barrier);
+            }
+            return delegate.generate(input);
+        }
+
+        void coordinateNextTwoCalls() {
+            generationBarrier = new CountDownLatch(2);
+        }
+
+        int calls() {
+            return calls.get();
+        }
+
+        void reset() {
+            calls.set(0);
+            generationBarrier = null;
+        }
+
+        private static void awaitCompetingGeneration(CountDownLatch barrier) {
+            try {
+                barrier.await(2, TimeUnit.SECONDS);
+            } catch (InterruptedException error) {
+                Thread.currentThread().interrupt();
+                throw new IllegalStateException("Interrupted while coordinating concurrent asset generation.", error);
+            }
+        }
     }
 }
