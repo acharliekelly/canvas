@@ -71,10 +71,14 @@ public class DescriptionService {
     @Transactional
     public DescriptionResponse approve(UUID artworkId, UUID descriptionId,
             String approver, Long expectedVersion) {
+        Artwork artwork = requireArtworkForUpdate(artworkId);
         Description description = requireOwnedDescription(artworkId, descriptionId);
         requireCurrentVersion(description, expectedVersion);
         if (description.getCurrentRevision().getState() == RevisionState.DRAFT) {
             description.approveCurrent(requiredApprover(approver), Instant.now());
+            DescriptionResponse response = DescriptionResponse.from(repository.saveAndFlush(description));
+            advanceArtworkVersion(artwork);
+            return response;
         }
         return DescriptionResponse.from(repository.saveAndFlush(description));
     }

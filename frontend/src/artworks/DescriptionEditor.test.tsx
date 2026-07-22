@@ -187,6 +187,31 @@ describe("DescriptionEditor", () => {
     );
   });
 
+  it("publishes with the artwork version advanced by approval", async () => {
+    const user = userEvent.setup();
+    const objective = description("objective", "Objective", "A blue square.", 0);
+    mockedApiFetch
+      .mockResolvedValueOnce(approvedDescription(objective))
+      .mockResolvedValueOnce({
+        publicationId: "publication-1",
+        slug: "blue-study-123",
+        publishedAt: "2026-07-21T12:00:00Z",
+        artworkVersion: 6,
+        created: true,
+        descriptions: [{ label: "Objective", text: "A blue square." }],
+      });
+    render(<DescriptionEditor artworkId="artwork-1" artworkVersion={4} initialDescriptions={[objective]} />);
+
+    await user.click(screen.getByRole("button", { name: "Approve Objective" }));
+    await user.click(screen.getByRole("button", { name: "Approve description" }));
+    expect((await screen.findAllByText(/Approved by configured-admin/))[0]).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Publish artwork" }));
+    await user.click(screen.getByRole("button", { name: "Confirm publication" }));
+
+    expect(mockedApiFetch).toHaveBeenNthCalledWith(2, "/api/artworks/artwork-1/publication",
+      expect.objectContaining({ body: JSON.stringify({ version: 5 }) }));
+  });
+
   it("cancels approval with Escape and restores focus to the invoking button", async () => {
     const user = userEvent.setup();
     const objective = description("objective", "Objective", "A blue square.", 0);

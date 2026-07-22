@@ -19,6 +19,7 @@ import org.canvas.description.DescriptionRepository;
 import org.canvas.description.DescriptionService;
 import org.canvas.description.api.DescriptionResponse;
 import org.canvas.publication.PublicationService.PublicationNotAllowed;
+import org.canvas.publication.PublicationService.PublicationProblem;
 import org.canvas.publication.PublicationService.PublicationResult;
 import org.canvas.storage.ObjectStorage;
 import org.junit.jupiter.api.BeforeEach;
@@ -161,6 +162,65 @@ class PublicationServiceTest {
         assertThat(publicationRepository.countByArtworkId(artwork.id())).isEqualTo(2);
         assertThat(publicationRepository.findCurrentByArtworkId(artwork.id())).get()
                 .extracting(Publication::getId).isEqualTo(second.publicationId());
+    }
+
+    @Test
+    void approvalAfterPreviewMakesThePreviewVersionStale() throws Exception {
+        ArtworkDetail artwork = createArtwork("Stale publication preview");
+        DescriptionResponse draft = descriptionService.createManual(
+                artwork.id(), "Objective", "A blue square.");
+        long previewVersion = currentVersion(artwork.id());
+
+        approve(artwork.id(), draft);
+
+        assertThatThrownBy(() -> service.publish(artwork.id(), previewVersion, ADMIN_ID))
+                .isInstanceOf(PublicationProblem.class)
+                .extracting("code")
+                .isEqualTo("stale_version");
+        assertThat(publicationRepository.countByArtworkId(artwork.id())).isZero();
+    }
+
+    @Test
+    void sameTextReapprovalCreatesANewAuditSnapshot() throws Exception {
+        ArtworkDetail artwork = createArtwork("Same text revision identity");
+        DescriptionResponse firstApproval = approve(artwork.id(),
+                descriptionService.createManual(artwork.id(), "Objective", "A blue square."));
+        PublicationResult first = service.publish(artwork.id(), currentVersion(artwork.id()), ADMIN_ID);
+        DescriptionResponse sameTextDraft = descriptionService.updateDraft(artwork.id(),
+                firstApproval.descriptionId(), "Objective", "A blue square.", firstApproval.version());
+        DescriptionResponse secondApproval = approve(artwork.id(), sameTextDraft);
+
+        PublicationResult second = service.publish(artwork.id(), currentVersion(artwork.id()), ADMIN_ID);
+
+        assertThat(secondApproval.approvedRevisionId()).isNotEqualTo(firstApproval.approvedRevisionId());
+        assertThat(second.created()).isTrue();
+        assertThat(second.publicationId()).isNotEqualTo(first.publicationId());
+        assertThat(publicationRepository.countByArtworkId(artwork.id())).isEqualTo(2);
+    }
+
+    @Test
+    void returningToAnExactApprovedRevisionOrderReusesItsOlderSnapshot() throws Exception {
+        ArtworkDetail artwork = createArtwork("Reusable ordered revisions");
+        DescriptionResponse objective = approve(artwork.id(),
+                descriptionService.createManual(artwork.id(), "Objective", "A blue square."));
+        DescriptionResponse subjective = approve(artwork.id(),
+                descriptionService.createManual(artwork.id(), "Subjective", "The square feels expansive."));
+        PublicationResult original = service.publish(artwork.id(), currentVersion(artwork.id()), ADMIN_ID);
+
+        descriptionService.reorder(artwork.id(),
+                List.of(subjective.descriptionId(), objective.descriptionId()), currentVersion(artwork.id()));
+        PublicationResult reversed = service.publish(artwork.id(), currentVersion(artwork.id()), ADMIN_ID);
+        descriptionService.reorder(artwork.id(),
+                List.of(objective.descriptionId(), subjective.descriptionId()), currentVersion(artwork.id()));
+
+        PublicationResult restored = service.publish(artwork.id(), currentVersion(artwork.id()), ADMIN_ID);
+
+        assertThat(reversed.created()).isTrue();
+        assertThat(restored.created()).isFalse();
+        assertThat(restored.publicationId()).isEqualTo(original.publicationId());
+        assertThat(publicationRepository.countByArtworkId(artwork.id())).isEqualTo(2);
+        assertThat(publicationRepository.findCurrentByArtworkId(artwork.id())).get()
+                .extracting(Publication::getId).isEqualTo(original.publicationId());
     }
 
     private DescriptionResponse approve(UUID artworkId, DescriptionResponse draft) {

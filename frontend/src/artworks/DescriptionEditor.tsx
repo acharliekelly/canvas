@@ -135,6 +135,7 @@ export function DescriptionEditor({ artworkId, artworkVersion: initialArtworkVer
       jsonRequest("POST", { version: description.version }),
     ).then((approved) => {
       replaceDescription(approved);
+      setArtworkVersion((current) => current + 1);
       setApprovalId(null);
       setStatus(`${approved.currentRevision.label} description approved`);
     }).catch((caught) => {

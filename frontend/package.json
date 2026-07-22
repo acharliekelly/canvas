@@ -7,6 +7,7 @@
     "dev": "vite --host 0.0.0.0",
     "build": "tsc -b && vite build",
     "test": "vitest",
+    "test:task5-integration": "node integration/task5-public-page-through-vite.mjs",
     "test:watch": "vitest --watch"
   },
   "dependencies": {

@@ -1,6 +1,8 @@
 import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
 
+const backendOrigin = process.env.CANVAS_BACKEND_ORIGIN ?? "http://backend:8080";
+
 export default defineConfig({
   plugins: [react()],
   test: {
@@ -11,7 +13,8 @@ export default defineConfig({
   server: {
     host: "0.0.0.0",
     proxy: {
-      "/api": "http://backend:8080",
+      "/api": backendOrigin,
+      "/public": backendOrigin,
     },
   },
 });

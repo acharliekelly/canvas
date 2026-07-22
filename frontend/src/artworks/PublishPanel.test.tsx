@@ -56,6 +56,10 @@ describe("PublishPanel", () => {
     await user.click(screen.getByRole("button", { name: "Publish artwork" }));
     const dialog = screen.getByRole("dialog", { name: "Publish this artwork?" });
     expect(dialog).toHaveTextContent("Only the approved revisions listed here will be public");
+    const preview = within(dialog).getByRole("list", { name: "Approved revisions in this publication" });
+    expect(within(preview).getAllByRole("listitem").map((item) => item.textContent))
+      .toEqual(["Objective: A blue square."]);
+    expect(within(dialog).getByRole("button", { name: "Confirm publication" })).toHaveFocus();
     expect(mockedApiFetch).not.toHaveBeenCalled();
 
     await user.click(within(dialog).getByRole("button", { name: "Confirm publication" }));
@@ -67,6 +71,39 @@ describe("PublishPanel", () => {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ version: 3 }),
     });
     expect(onPublished).toHaveBeenCalledWith(4);
+    expect(screen.getByRole("button", { name: "Publish artwork" })).toHaveFocus();
+  });
+
+  it("does not restore trigger focus during a publishing render", async () => {
+    const user = userEvent.setup();
+    let completePublication!: (result: {
+      publicationId: string;
+      slug: string;
+      publishedAt: string;
+      artworkVersion: number;
+      created: boolean;
+      descriptions: { label: string; text: string }[];
+    }) => void;
+    mockedApiFetch.mockReturnValueOnce(new Promise((resolve) => { completePublication = resolve; }));
+    render(<PublishPanel artworkId="artwork-1" artworkVersion={3}
+      descriptions={[approvedDescription("objective", "Objective", "A blue square.", 0)]}
+      onPublished={vi.fn()} />);
+
+    const publish = screen.getByRole("button", { name: "Publish artwork" });
+    await user.click(publish);
+    const confirm = screen.getByRole("button", { name: "Confirm publication" });
+    const triggerFocus = vi.spyOn(publish, "focus");
+    await user.click(confirm);
+
+    expect(screen.getByRole("button", { name: "Publishing artwork" })).toHaveFocus();
+    expect(triggerFocus).not.toHaveBeenCalled();
+
+    completePublication({
+      publicationId: "publication-1", slug: "blue-study-123", publishedAt: "2026-07-21T12:00:00Z",
+      artworkVersion: 4, created: true, descriptions: [{ label: "Objective", text: "A blue square." }],
+    });
+    expect(await screen.findByRole("status")).toHaveTextContent("Artwork published");
+    expect(triggerFocus).toHaveBeenCalledTimes(1);
   });
 
   it("shows an actionable focused server error and restores focus when confirmation is cancelled", async () => {

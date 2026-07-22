@@ -137,6 +137,7 @@ class DescriptionServiceTest {
     void approvalRecordsApproverAndTimestamp() throws Exception {
         ArtworkDetail artwork = createArtwork("Approval");
         DescriptionResponse created = service.createManual(artwork.id(), "Objective", "A blue square.");
+        long artworkVersionBeforeApproval = artworkRepository.findById(artwork.id()).orElseThrow().getVersion();
         Instant before = Instant.now();
 
         DescriptionResponse approved = service.approve(
@@ -146,6 +147,8 @@ class DescriptionServiceTest {
         assertThat(approved.currentRevision().approvedBy()).isEqualTo("configured-admin");
         assertThat(approved.currentRevision().approvedAt()).isAfterOrEqualTo(before);
         assertThat(approved.approvedRevisionId()).isEqualTo(approved.currentRevision().revisionId());
+        assertThat(artworkRepository.findById(artwork.id()).orElseThrow().getVersion())
+                .isEqualTo(artworkVersionBeforeApproval + 1);
     }
 
     @Test

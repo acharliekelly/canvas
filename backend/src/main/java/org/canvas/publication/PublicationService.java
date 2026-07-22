@@ -158,8 +158,13 @@ public class PublicationService {
             digest.update(ByteBuffer.allocate(Long.BYTES).putLong(artwork.getByteSize()).array());
             for (int index = 0; index < approved.size(); index++) {
                 digest.update(ByteBuffer.allocate(Integer.BYTES).putInt(index).array());
-                update(digest, approved.get(index).label());
-                update(digest, approved.get(index).text());
+                ApprovedSnapshot snapshot = approved.get(index);
+                digest.update(ByteBuffer.allocate(2 * Long.BYTES)
+                        .putLong(snapshot.revisionId().getMostSignificantBits())
+                        .putLong(snapshot.revisionId().getLeastSignificantBits())
+                        .array());
+                update(digest, snapshot.label());
+                update(digest, snapshot.text());
             }
             return HexFormat.of().formatHex(digest.digest());
         } catch (NoSuchAlgorithmException impossible) {

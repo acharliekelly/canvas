@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { apiFetch } from "../api/client";
 import type { DescriptionResponse, PublicationResult, PublishedDescription } from "../api/types";
@@ -21,6 +21,9 @@ export function PublishPanel({ artworkId, artworkVersion, descriptions, onPublis
   useEffect(() => {
     if (error) errorRef.current?.focus();
   }, [error]);
+
+  const closeConfirmation = useCallback(() => setConfirming(false), []);
+  const restorePublishFocus = useCallback(() => publishButtonRef.current?.focus(), []);
 
   function publish() {
     setPublishing(true);
@@ -46,25 +49,22 @@ export function PublishPanel({ artworkId, artworkVersion, descriptions, onPublis
       <h2 id="publication-heading">Publication</h2>
       {approved.length === 0 ? <p>Approve at least one description before publishing.</p> : <>
         <p>Only approved revisions are included. Drafts and approval history stay private.</p>
-        <ul aria-label="Approved descriptions to publish" className="publication-description-list">
-          {approved.map((description) => <li key={`${description.label}-${description.text}`}>
-            <strong>{description.label}:</strong> {description.text}
-          </li>)}
-        </ul>
+        <ApprovedRevisionList descriptions={approved} label="Approved descriptions to publish" />
       </>}
       {error && <p role="alert" tabIndex={-1} ref={errorRef} className="error-summary">{error}</p>}
       <button type="button" ref={publishButtonRef} disabled={approved.length === 0 || publishing}
         onClick={() => setConfirming(true)}>Publish artwork</button>
       {status && <p role="status" aria-live="polite">{status}</p>}
       {result && <p><a href={`/artworks/${result.slug}`}>Open published artwork</a></p>}
-      {confirming && <PublicationDialog publishing={publishing} onConfirm={publish}
-        onCancel={() => setConfirming(false)} onReturnFocus={() => publishButtonRef.current?.focus()} />}
+      {confirming && <PublicationDialog publishing={publishing} descriptions={approved} onConfirm={publish}
+        onCancel={closeConfirmation} onReturnFocus={restorePublishFocus} />}
     </section>
   );
 }
 
-function PublicationDialog({ publishing, onConfirm, onCancel, onReturnFocus }: {
+function PublicationDialog({ publishing, descriptions, onConfirm, onCancel, onReturnFocus }: {
   publishing: boolean;
+  descriptions: PublishedDescription[];
   onConfirm: () => void;
   onCancel: () => void;
   onReturnFocus: () => void;
@@ -86,6 +86,7 @@ function PublicationDialog({ publishing, onConfirm, onCancel, onReturnFocus }: {
     onCancel={(event) => { event.preventDefault(); onCancel(); }}>
     <h2 id="publication-confirm-heading">Publish this artwork?</h2>
     <p>Only the approved revisions listed here will be public. Later drafts remain private until approved and republished.</p>
+    <ApprovedRevisionList descriptions={descriptions} label="Approved revisions in this publication" />
     <div className="button-row">
       <button type="button" onClick={onCancel} disabled={publishing}>Cancel</button>
       <button type="button" onClick={onConfirm} disabled={publishing} ref={confirmRef}>
@@ -93,6 +94,17 @@ function PublicationDialog({ publishing, onConfirm, onCancel, onReturnFocus }: {
       </button>
     </div>
   </dialog>;
+}
+
+function ApprovedRevisionList({ descriptions, label }: {
+  descriptions: PublishedDescription[];
+  label: string;
+}) {
+  return <ul aria-label={label} className="publication-description-list">
+    {descriptions.map((description, index) => <li key={`${index}-${description.label}`}>
+      <strong>{description.label}:</strong> {description.text}
+    </li>)}
+  </ul>;
 }
 
 function approvedDescriptions(descriptions: DescriptionResponse[]): PublishedDescription[] {
