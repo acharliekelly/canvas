@@ -107,7 +107,7 @@ function ApprovedRevisionList({ descriptions, label }: {
   label: string;
 }) {
   return <ul aria-label={label} className="publication-description-list">
-    {descriptions.map((description, index) => <li key={`${index}-${description.label}`}>
+    {descriptions.map((description) => <li key={`${description.label}\u0000${description.text}`}>
       <strong>{description.label}:</strong> {description.text}
     </li>)}
   </ul>;

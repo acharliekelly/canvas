@@ -45,8 +45,9 @@ export function PublicArtworkPage({ slug }: { slug: string }) {
     <img src={artwork.imageUrl} alt={imageAlt(artwork)} className="public-artwork-image" />
     <div className="published-descriptions">
       {artwork.descriptions.map((description, index) => <section
-        aria-labelledby={`published-description-${index}`} key={`${index}-${description.label}`}>
+        aria-labelledby={`published-description-${index}`} key={description.audioUrl}>
         <h2 id={`published-description-${index}`}>{description.label}</h2>
+        {/* biome-ignore lint/a11y/useMediaCaption: The complete narration transcript is visible immediately below. */}
         <audio controls preload="none" src={description.audioUrl}
           aria-label={`Listen to ${description.label} description for ${artwork.title}`}>
           Your browser does not support audio playback.

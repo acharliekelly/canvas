@@ -62,7 +62,7 @@ try {
   ]);
   if (code !== 0) throw new Error(`Browser exited ${code}: ${stderr}`);
   assert(stdout.includes("Proxy Study"), "public artwork JSON did not render through Vite");
-  assert(stdout.includes(`src=\"${imagePath}\"`), "backend image URL was not rendered");
+  assert(stdout.includes(`src="${imagePath}"`), "backend image URL was not rendered");
   assert(requests.includes(`/public/artworks/${slug}`), "Vite did not proxy the public artwork JSON request");
   assert(requests.includes(imagePath), "the browser did not load the public image through Vite");
   process.stdout.write("Task 5 frontend proxy integration passed: public JSON and image loaded through Vite.\n");

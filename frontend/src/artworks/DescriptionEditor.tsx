@@ -262,7 +262,9 @@ export function DescriptionEditor({ artworkId, artworkVersion: initialArtworkVer
 function RevisionHistory({ description }: { description: DescriptionResponse }) {
   return (
     <section aria-labelledby={`description-${description.descriptionId}-history`} className="revision-history">
-      <h4 id={`description-${description.descriptionId}-history`}>Revision history</h4>
+      <h4 id={`description-${description.descriptionId}-history`}>
+        {description.currentRevision.label} revision history
+      </h4>
       <ol>
         {description.revisions.map((revision) => <li key={revision.revisionId}>
           <p><span className="status-label">{revision.state === "APPROVED" ? "Approved revision" : "Draft revision"}:</span> {revision.label}</p>

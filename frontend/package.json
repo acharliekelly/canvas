@@ -6,9 +6,13 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "tsc -b && vite build",
+    "lint": "biome lint .",
+    "typecheck": "tsc -b --pretty false",
     "test": "vitest",
     "test:task5-integration": "node integration/task5-public-page-through-vite.mjs",
-    "test:watch": "vitest --watch"
+    "test:watch": "vitest --watch",
+    "e2e": "playwright test manual-description-publication.spec.ts generated-description-publication.spec.ts accessibility.spec.ts keyboard-accessibility.spec.ts",
+    "e2e:persistence": "playwright test persistence-check.spec.ts"
   },
   "dependencies": {
     "@vitejs/plugin-react": "6.0.3",
@@ -17,6 +21,9 @@
     "vite": "8.1.5"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.12.1",
+    "@biomejs/biome": "2.5.5",
+    "@playwright/test": "1.61.1",
     "@testing-library/dom": "10.4.1",
     "@testing-library/jest-dom": "7.0.0",
     "@testing-library/react": "16.3.2",
