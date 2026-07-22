@@ -17,6 +17,7 @@ import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionTemplate;
 
 @Component
@@ -28,6 +29,7 @@ public class CaptionJobRunner {
     private final CaptionClient client;
     private final DescriptionService descriptions;
     private final TransactionTemplate transactions;
+    private final TransactionTemplate independentTransactions;
     private final Executor executor;
 
     CaptionJobRunner(CaptionJobRepository repository, CaptionClient client,
@@ -37,6 +39,8 @@ public class CaptionJobRunner {
         this.client = client;
         this.descriptions = descriptions;
         this.transactions = new TransactionTemplate(transactionManager);
+        this.independentTransactions = new TransactionTemplate(transactionManager);
+        this.independentTransactions.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
         this.executor = executor;
     }
 
@@ -44,7 +48,7 @@ public class CaptionJobRunner {
         try {
             executor.execute(() -> run(jobId));
         } catch (java.util.concurrent.RejectedExecutionException error) {
-            log.warn("Caption job rejected by bounded executor jobId={}", jobId);
+            log.warn("Caption job rejected by bounded executor jobId={}", jobId, error);
             reject(jobId);
         }
     }
@@ -81,7 +85,7 @@ public class CaptionJobRunner {
             }
         } catch (Exception error) {
             log.warn("Caption job failed jobId={} artworkId={} errorType={}",
-                    jobId, claimed.artworkId(), error.getClass().getSimpleName());
+                    jobId, claimed.artworkId(), error.getClass().getSimpleName(), error);
             fail(jobId);
         }
     }
@@ -122,7 +126,7 @@ public class CaptionJobRunner {
     }
 
     private void reject(UUID jobId) {
-        transactions.executeWithoutResult(status -> {
+        independentTransactions.executeWithoutResult(status -> {
             CaptionJob job = repository.findByIdForUpdate(jobId).orElse(null);
             if (job != null && job.rejectIfPending(SAFE_FAILURE, Instant.now())) {
                 repository.saveAndFlush(job);

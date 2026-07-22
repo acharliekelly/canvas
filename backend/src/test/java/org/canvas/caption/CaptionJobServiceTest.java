@@ -166,6 +166,20 @@ class CaptionJobServiceTest {
         assertThat(service.get(artwork.id(), pending.jobId()).state()).isEqualTo(CaptionJob.State.RUNNING);
     }
 
+    @Test
+    void executorRejectionAfterCommitPersistsGenericTerminalFailure() throws Exception {
+        ArtworkDetail artwork = createArtwork("Rejected job");
+        doThrow(new RejectedExecutionException("secret executor detail"))
+                .when(executor).execute(any(Runnable.class));
+
+        var requested = service.request(artwork.id());
+
+        var persisted = service.get(artwork.id(), requested.jobId());
+        assertThat(persisted.state()).isEqualTo(CaptionJob.State.FAILED);
+        assertThat(persisted.errorMessage()).isEqualTo(CaptionJobRunner.SAFE_FAILURE);
+        assertThat(persisted.errorMessage()).doesNotContain("secret");
+    }
+
     private ArtworkDetail createArtwork(String title) throws Exception {
         BufferedImage image = new BufferedImage(2, 2, BufferedImage.TYPE_INT_RGB);
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();

@@ -20,12 +20,14 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import javax.imageio.ImageIO;
+import javax.sql.DataSource;
 import org.canvas.artwork.ArtworkRepository;
 import org.canvas.artwork.ArtworkService;
 import org.canvas.artwork.api.ArtworkDetail;
 import org.canvas.description.DescriptionService.DescriptionProblem;
 import org.canvas.description.api.DescriptionResponse;
 import org.canvas.storage.ObjectStorage;
+import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -65,6 +67,7 @@ class DescriptionPostgresIntegrationTest {
     @Autowired ArtworkRepository artworkRepository;
     @Autowired JdbcTemplate jdbc;
     @Autowired PlatformTransactionManager transactionManager;
+    @Autowired DataSource dataSource;
 
     @MockitoBean ObjectStorage storage;
 
@@ -176,6 +179,99 @@ class DescriptionPostgresIntegrationTest {
         assertThatThrownBy(() -> jdbc.update("UPDATE description_revisions SET parent_revision_id = ? WHERE id = ?",
                 second.currentRevision().revisionId(), first.currentRevision().revisionId()))
                 .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    void captionJobResultForeignKeyRestrictsDeletionForAuditRetention() throws Exception {
+        ArtworkDetail artwork = createArtwork("Retained caption result");
+        DescriptionResponse description = service.createManual(
+                artwork.id(), "Placeholder draft", "Retained generated text.");
+        UUID jobId = UUID.randomUUID();
+        jdbc.update("""
+                INSERT INTO caption_jobs (
+                    id, artwork_id, active_artwork_id, state, attempt_count, error_message,
+                    result_description_id, started_at, completed_at, version, created_at, updated_at
+                ) VALUES (?, ?, NULL, 'SUCCEEDED', 1, NULL, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP,
+                    0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                """, jobId, artwork.id(), description.descriptionId());
+
+        assertThat(jdbc.queryForObject("""
+                SELECT confdeltype::text
+                FROM pg_constraint
+                WHERE conrelid = 'caption_jobs'::regclass
+                  AND conname = 'caption_jobs_result_description_id_fkey'
+                """, String.class)).isEqualTo("r");
+        assertThat(jdbc.queryForObject(
+                "SELECT count(*) FROM flyway_schema_history WHERE version = '5' AND success",
+                Integer.class)).isOne();
+        assertThatThrownBy(() -> jdbc.update(
+                "DELETE FROM descriptions WHERE id = ?", description.descriptionId()))
+                .isInstanceOf(DataIntegrityViolationException.class);
+        assertThat(jdbc.queryForObject(
+                "SELECT count(*) FROM caption_jobs WHERE id = ?", Integer.class, jobId)).isOne();
+    }
+
+    @Test
+    void captionJobResultForeignKeyUpgradeFromV4PreservesExistingResult() {
+        String schema = "caption_v4_upgrade";
+        UUID artworkId = UUID.randomUUID();
+        UUID descriptionId = UUID.randomUUID();
+        UUID jobId = UUID.randomUUID();
+        jdbc.execute("DROP SCHEMA IF EXISTS " + schema + " CASCADE");
+        jdbc.execute("CREATE SCHEMA " + schema);
+        try {
+            migrateSchema(schema, "4");
+            jdbc.update("""
+                    INSERT INTO caption_v4_upgrade.artworks (
+                        id, title, credit, media_type, byte_size, object_key, lifecycle_status,
+                        version, created_at, updated_at
+                    ) VALUES (?, 'Upgrade artwork', 'A. Artist', 'image/png', 12, 'upgrade/key',
+                        'UPLOADED', 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                    """, artworkId);
+            jdbc.update("""
+                    INSERT INTO caption_v4_upgrade.descriptions (
+                        id, artwork_id, source, display_order, current_revision_id,
+                        version, created_at, updated_at
+                    ) VALUES (?, ?, 'GENERATED', 0, NULL, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                    """, descriptionId, artworkId);
+            jdbc.update("""
+                    INSERT INTO caption_v4_upgrade.caption_jobs (
+                        id, artwork_id, active_artwork_id, state, attempt_count, error_message,
+                        result_description_id, started_at, completed_at, version, created_at, updated_at
+                    ) VALUES (?, ?, NULL, 'SUCCEEDED', 1, NULL, ?, CURRENT_TIMESTAMP,
+                        CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                    """, jobId, artworkId, descriptionId);
+
+            migrateSchema(schema, "5");
+
+            assertThat(jdbc.queryForObject("""
+                    SELECT result_description_id
+                    FROM caption_v4_upgrade.caption_jobs
+                    WHERE id = ?
+                    """, UUID.class, jobId)).isEqualTo(descriptionId);
+            assertThat(jdbc.queryForObject("""
+                    SELECT confdeltype::text
+                    FROM pg_constraint
+                    WHERE conrelid = 'caption_v4_upgrade.caption_jobs'::regclass
+                      AND conname = 'caption_jobs_result_description_id_fkey'
+                    """, String.class)).isEqualTo("r");
+            assertThatThrownBy(() -> jdbc.update(
+                    "DELETE FROM caption_v4_upgrade.descriptions WHERE id = ?", descriptionId))
+                    .isInstanceOf(DataIntegrityViolationException.class);
+        } finally {
+            jdbc.execute("DROP SCHEMA IF EXISTS " + schema + " CASCADE");
+        }
+    }
+
+    private void migrateSchema(String schema, String target) {
+        Flyway.configure()
+                .dataSource(dataSource)
+                .defaultSchema(schema)
+                .schemas(schema)
+                .locations("classpath:db/migration")
+                .target(target)
+                .load()
+                .migrate();
     }
 
     @Test
