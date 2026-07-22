@@ -79,6 +79,11 @@ With NVDA use Browse/Focus modes and heading/form-field shortcuts. With VoiceOve
 
 Do not mark the release complete if any row fails. Link an issue and leave the result `FAIL` until it is retested.
 
+## Next milestone TODO
+
+- Complete the full human accessibility checklist before treating CANVAS as release-ready: keyboard and visible-focus review, an audible screen-reader pass, 200% zoom and 320 px reflow, and manual contrast/non-color verification.
+- The local MVP demo may proceed with the partial result below; this deferral applies only to demo acceptance and does not waive accessibility as a release criterion.
+
 | Date | Browser and OS | Assistive technology | Keyboard workflow | Screen reader | 200% / 320 px | Contrast / non-color | Draft/public privacy | Issues or limitations |
 |---|---|---|---|---|---|---|---|---|
 | 2026-07-21 | Chrome 150.0.7871.100 / Ubuntu 24.04 | Orca 46.1 | PARTIAL PASS — automated headed keyboard-only sign-in and upload-error path passed; no human visual focus review | LIMITED — Orca started with Speech Dispatcher and logged Chrome AT-SPI events/names, including masked password input; synthesized output was not audible/verifiable by the agent, and the full checklist was not run | NOT RUN | PARTIAL — axe found no violations in tested states; no human contrast inspection | PASS — automated publication journey checked public payload and draft/internal-data exclusion | Release criterion remains open pending a human keyboard, audible screen-reader, zoom/narrow-view, and contrast pass. |
