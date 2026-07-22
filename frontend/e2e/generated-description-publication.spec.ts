@@ -30,9 +30,8 @@ test("generated draft remains blocked until edited, approved, and explicitly pub
   const publicHref = await publicLink.getAttribute("href");
   expect(publicHref).toMatch(/^\/artworks\/e2e-generated-description-study-/);
   const slug = publicHref?.replace("/artworks/", "") as string;
-  const qrHref = `/public/artworks/${slug}/qr`;
   const qrLink = page.getByRole("link", { name: `Download QR code for ${TITLE}` });
-  await expect(qrLink).toHaveAttribute("href", qrHref);
+  await expect(qrLink).toHaveAttribute("href", new RegExp(`^/public/artworks/${slug}/qr/[0-9a-f-]+$`));
 
   const qrDownload = page.waitForEvent("download");
   await qrLink.click();
@@ -51,7 +50,7 @@ test("generated draft remains blocked until edited, approved, and explicitly pub
   await expect(audio).toBeVisible();
   await expect(audio).toHaveAttribute("controls", "");
   const audioUrl = await audio.getAttribute("src");
-  expect(audioUrl).toMatch(new RegExp(`^/public/artworks/${slug}/descriptions/[0-9a-f-]+/audio$`));
+  expect(audioUrl).toMatch(new RegExp(`^/public/artworks/${slug}/descriptions/[0-9a-f-]+/audio/[0-9a-f-]+$`));
   const audioResponse = await page.request.get(audioUrl as string);
   expect(audioResponse.ok()).toBe(true);
   expect(audioResponse.headers()["content-type"]).toContain("audio/wav");

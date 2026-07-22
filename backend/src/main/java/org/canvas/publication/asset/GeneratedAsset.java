@@ -79,6 +79,10 @@ public class GeneratedAsset {
         this.updatedAt = createdAt;
     }
 
+    void markRestored() {
+        updatedAt = Instant.now().truncatedTo(ChronoUnit.MICROS);
+    }
+
     public UUID getId() { return id; }
     public AssetKind getKind() { return kind; }
     public String getInputKey() { return inputKey; }

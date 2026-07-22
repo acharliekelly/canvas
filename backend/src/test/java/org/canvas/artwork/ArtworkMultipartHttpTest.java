@@ -13,12 +13,10 @@ import org.canvas.storage.ObjectStorage;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.SpringBootTest.WebEnvironment;
-import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.web.server.LocalServerPort;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Primary;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 @SpringBootTest(webEnvironment = WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
@@ -27,6 +25,8 @@ class ArtworkMultipartHttpTest {
     private static final String BOUNDARY = "canvas-http-boundary";
 
     @LocalServerPort int port;
+    @MockitoBean(name = "originalObjectStorage") ObjectStorage storage;
+
     @Test
     void oversizedMultipartRequestCrossesTheServletParserAndReturnsProblemDetails() throws Exception {
         CookieManager cookies = new CookieManager(null, CookiePolicy.ACCEPT_ALL);
@@ -79,23 +79,5 @@ class ArtworkMultipartHttpTest {
         System.arraycopy(image, 0, body, prefix.length, image.length);
         System.arraycopy(suffix, 0, body, prefix.length + image.length, suffix.length);
         return body;
-    }
-
-    @TestConfiguration
-    static class StorageStubConfiguration {
-        @Bean
-        @Primary
-        ObjectStorage objectStorageStub() {
-            return new ObjectStorage() {
-                @Override
-                public StoredObject put(java.io.InputStream content, long byteSize, String mediaType) {
-                    return new StoredObject("unused");
-                }
-
-                @Override
-                public void delete(String objectKey) {
-                }
-            };
-        }
     }
 }

@@ -80,13 +80,15 @@ The first MVP is admin-only. It does not include public artist registration, aut
 - Docker Engine with Docker Compose v2 and at least 4 GB available memory;
 - Java 21, Node.js 24 with npm, and Python 3.13 for host-side verification;
 - GNU Make and curl;
-- Google Chrome for the default Playwright configuration. To use Playwright's bundled Chromium instead, run `cd frontend && npx playwright install chromium`, then set `CANVAS_E2E_BROWSER_CHANNEL=bundled` when running E2E commands.
+- Playwright's bundled Chromium for automated E2E checks. Install it with `cd frontend && npx playwright install chromium`. Google Chrome is optional for manual assistive-technology checks; set `CANVAS_E2E_BROWSER_CHANNEL=chrome` only when deliberately running those checks in Chrome.
 
 Copy the local sample configuration. `.env` is ignored by Git.
 
 ```bash
 cp .env.example .env
 ```
+
+The MinIO root credentials in this local-only file are used only by the MinIO service and its one-shot initializer. The backend uses the separate `CANVAS_S3_ACCESS_KEY` and `CANVAS_S3_SECRET_KEY`, scoped to the configured private originals and generated-asset buckets.
 
 Create the ignored worker environment used by host-side verification:
 
@@ -135,7 +137,7 @@ docker compose stop
 
 ### Verification
 
-Run every non-GPU automated check, including backend integration/migration/module checks, frontend lint/type/component/build checks, all worker tests, and Compose validation:
+Run every non-GPU automated check, including backend integration/migration/module checks, frontend lint/type/component/build checks, worker tests, MinIO bootstrap/configuration checks, and Compose validation:
 
 ```bash
 make verify
@@ -146,6 +148,8 @@ Run the two publication journeys and axe checks against a Compose stack. This co
 ```bash
 make e2e
 ```
+
+`make e2e` uses bundled Chromium by default. To explicitly use a locally installed Chrome for a manual assistive-technology run, use `CANVAS_E2E_BROWSER_CHANNEL=chrome make e2e`.
 
 To prove that the published database records, original image, audio, and QR asset survive an ordinary restart:
 

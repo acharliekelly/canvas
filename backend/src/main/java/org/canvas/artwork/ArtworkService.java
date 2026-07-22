@@ -14,6 +14,7 @@ import org.canvas.storage.ObjectStorage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,7 +33,7 @@ public class ArtworkService {
     private final TransactionTemplate transactions;
     private final long maxBytes;
 
-    ArtworkService(ArtworkRepository repository, ObjectStorage storage,
+    ArtworkService(ArtworkRepository repository, @Qualifier("originalObjectStorage") ObjectStorage storage,
             PlatformTransactionManager transactionManager,
             @Value("${canvas.upload-max-size}") DataSize maximumSize) {
         this.repository = repository;

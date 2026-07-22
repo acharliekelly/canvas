@@ -7,6 +7,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.servlet.MultipartConfigFactory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 import org.springframework.util.unit.DataSize;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
@@ -43,9 +44,18 @@ public class StorageConfiguration {
                 .build();
     }
 
-    @Bean
-    @ConditionalOnMissingBean(ObjectStorage.class)
-    ObjectStorage objectStorage(S3Client client, @Value("${canvas.storage.originals-bucket}") String bucket) {
+    @Bean(name = "originalObjectStorage")
+    @Primary
+    @ConditionalOnMissingBean(name = "originalObjectStorage")
+    ObjectStorage originalObjectStorage(S3Client client,
+            @Value("${canvas.storage.originals-bucket}") String bucket) {
+        return new S3ObjectStorage(client, bucket);
+    }
+
+    @Bean(name = "generatedObjectStorage")
+    @ConditionalOnMissingBean(name = "generatedObjectStorage")
+    ObjectStorage generatedObjectStorage(S3Client client,
+            @Value("${canvas.storage.generated-bucket}") String bucket) {
         return new S3ObjectStorage(client, bucket);
     }
 }

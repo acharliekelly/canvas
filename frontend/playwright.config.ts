@@ -1,7 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
 const configuredChannel = process.env.CANVAS_E2E_BROWSER_CHANNEL;
-const browserChannel = configuredChannel === "bundled" ? undefined : (configuredChannel ?? "chrome");
+const browserChannel = configuredChannel === "chrome" ? "chrome" : undefined;
 
 export default defineConfig({
   testDir: "./e2e",

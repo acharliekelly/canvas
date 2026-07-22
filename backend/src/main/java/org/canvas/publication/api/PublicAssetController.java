@@ -23,15 +23,15 @@ public class PublicAssetController {
         this.service = service;
     }
 
-    @GetMapping("/descriptions/{publishedDescriptionId}/audio")
+    @GetMapping("/descriptions/{publishedDescriptionId}/audio/{assetId}")
     ResponseEntity<InputStreamResource> audio(@PathVariable String slug,
-            @PathVariable UUID publishedDescriptionId) {
-        return response(service.publicAudio(slug, publishedDescriptionId), null);
+            @PathVariable UUID publishedDescriptionId, @PathVariable UUID assetId) {
+        return response(service.publicAudio(slug, publishedDescriptionId, assetId), null);
     }
 
-    @GetMapping("/qr")
-    ResponseEntity<InputStreamResource> qr(@PathVariable String slug) {
-        return response(service.publicQr(slug),
+    @GetMapping("/qr/{assetId}")
+    ResponseEntity<InputStreamResource> qr(@PathVariable String slug, @PathVariable UUID assetId) {
+        return response(service.publicQr(slug, assetId),
                 "attachment; filename=\"" + safeFilename(slug) + "-qr.png\"");
     }
 

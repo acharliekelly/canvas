@@ -17,3 +17,4 @@ canvas:
     secret-key: test-secret
     region: us-east-1
     originals-bucket: canvas-originals
+    generated-bucket: canvas-generated

@@ -49,7 +49,7 @@ class DescriptionApiTest {
     @Autowired
     ArtworkRepository artworkRepository;
 
-    @MockitoBean
+    @MockitoBean(name = "originalObjectStorage")
     ObjectStorage storage;
 
     @BeforeEach

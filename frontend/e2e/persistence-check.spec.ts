@@ -12,12 +12,15 @@ test("published artwork and cached assets survive an ordinary Compose restart", 
   expect(editHref).toMatch(/^\/artworks\/[0-9a-f-]+\/edit$/);
   const artworkId = editHref?.split("/")[2] as string;
   const slug = slugFor(TITLE, artworkId);
+  await artworkLink.click();
+  await expect(page.getByRole("heading", { name: `Edit ${TITLE}` })).toBeVisible();
 
   const publicResponse = await page.request.get(`/public/artworks/${slug}`);
   expect(publicResponse.ok()).toBe(true);
   const publicArtwork = await publicResponse.json();
   expect(publicArtwork.descriptions.map((item: { label: string }) => item.label)).toEqual(["Objective", "Subjective"]);
   expect(publicArtwork.imageUrl).toBe(`/public/artworks/${slug}/image`);
+  expect(publicArtwork.qrUrl).toMatch(new RegExp(`^/public/artworks/${slug}/qr/[0-9a-f-]+$`));
   const originalImage = await page.request.get(publicArtwork.imageUrl);
   expect(originalImage.ok()).toBe(true);
   expect(originalImage.headers()["content-type"]).toContain("image/png");
@@ -30,7 +33,7 @@ test("published artwork and cached assets survive an ordinary Compose restart", 
     expect(audio.headers()["cache-control"]).toContain("immutable");
     expect((await audio.body()).subarray(0, 4).toString("ascii")).toBe("RIFF");
   }
-  const qr = await page.request.get(`/public/artworks/${slug}/qr`);
+  const qr = await page.request.get(publicArtwork.qrUrl);
   expect(qr.ok()).toBe(true);
   expect(qr.headers()["cache-control"]).toContain("immutable");
   expect([...(await qr.body()).subarray(0, 8)]).toEqual([137, 80, 78, 71, 13, 10, 26, 10]);

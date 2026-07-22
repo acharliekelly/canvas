@@ -58,7 +58,7 @@ export function PublishPanel({ artworkId, artworkTitle = "this artwork", artwork
       {status && <p role="status" aria-live="polite">{status}</p>}
       {result && <p className="publication-links">
         <a href={`/artworks/${result.slug}`}>Open published artwork</a>{" "}
-        <a href={`/public/artworks/${result.slug}/qr`} download>
+        <a href={result.qrUrl} download>
           Download QR code for {artworkTitle}
         </a>
       </p>}

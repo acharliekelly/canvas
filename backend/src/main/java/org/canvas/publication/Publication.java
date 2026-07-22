@@ -18,6 +18,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import org.canvas.artwork.Artwork;
+import org.canvas.publication.asset.GeneratedAsset;
 
 @Entity
 @Table(name = "publications")
@@ -60,6 +61,10 @@ public class Publication {
     @Column(name = "published_at", nullable = false)
     private Instant publishedAt;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "qr_asset_id")
+    private GeneratedAsset qrAsset;
+
     @OneToMany(mappedBy = "publication", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("displayOrder ASC")
     private List<PublishedDescription> descriptions = new ArrayList<>();
@@ -92,6 +97,10 @@ public class Publication {
         currentArtworkId = null;
     }
 
+    void associateQrAsset(GeneratedAsset asset) {
+        qrAsset = asset;
+    }
+
     public UUID getId() { return id; }
     public Artwork getArtwork() { return artwork; }
     public int getPublicationVersion() { return publicationVersion; }
@@ -104,5 +113,6 @@ public class Publication {
     public long getImageByteSize() { return imageByteSize; }
     public UUID getPublishedBy() { return publishedBy; }
     public Instant getPublishedAt() { return publishedAt; }
+    public GeneratedAsset getQrAsset() { return qrAsset; }
     public List<PublishedDescription> getDescriptions() { return Collections.unmodifiableList(descriptions); }
 }

@@ -30,6 +30,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -61,20 +62,26 @@ class PublicArtworkApiTest {
     @Autowired
     GeneratedAssetRepository assetRepository;
 
-    @MockitoBean
-    ObjectStorage storage;
+    @Autowired
+    JdbcTemplate jdbc;
+
+    @MockitoBean(name = "originalObjectStorage")
+    ObjectStorage originalStorage;
+
+    @MockitoBean(name = "generatedObjectStorage")
+    ObjectStorage generatedStorage;
 
     @BeforeEach
     void cleanDatabase() {
-        assetRepository.deleteAll();
         publicationRepository.deleteAll();
+        assetRepository.deleteAll();
         descriptionRepository.deleteAll();
         artworkRepository.deleteAll();
-        when(storage.put(any(), anyLong(), anyString()))
+        when(originalStorage.put(any(), anyLong(), anyString()))
                 .thenAnswer(invocation -> new ObjectStorage.StoredObject("originals/" + UUID.randomUUID()));
-        when(storage.putGenerated(anyString(), any(), anyLong(), anyString()))
+        when(generatedStorage.putGenerated(anyString(), any(), anyLong(), anyString()))
                 .thenAnswer(invocation -> new ObjectStorage.StoredObject(invocation.getArgument(0)));
-        when(storage.get(anyString())).thenReturn(new ByteArrayInputStream(IMAGE));
+        when(originalStorage.get(anyString())).thenReturn(new ByteArrayInputStream(IMAGE));
     }
 
     @AfterEach
@@ -149,9 +156,14 @@ class PublicArtworkApiTest {
                 .andExpect(jsonPath("$.title").value("Blue Study"))
                 .andExpect(jsonPath("$.credit").value("A. Artist"))
                 .andExpect(jsonPath("$.imageUrl").value("/public/artworks/" + slug + "/image"))
+                .andExpect(jsonPath("$.qrUrl").value(org.hamcrest.Matchers.matchesPattern(
+                        "/public/artworks/" + slug + "/qr/[0-9a-f-]{36}")))
                 .andExpect(jsonPath("$.descriptions.length()").value(1))
                 .andExpect(jsonPath("$.descriptions[0].label").value("Objective"))
                 .andExpect(jsonPath("$.descriptions[0].text").value("A blue square."))
+                .andExpect(jsonPath("$.descriptions[0].audioUrl").value(
+                        org.hamcrest.Matchers.matchesPattern("/public/artworks/" + slug
+                                + "/descriptions/[0-9a-f-]{36}/audio/[0-9a-f-]{36}")))
                 .andExpect(jsonPath("$.id").doesNotExist())
                 .andExpect(jsonPath("$.artworkId").doesNotExist())
                 .andExpect(jsonPath("$.publicationId").doesNotExist())
@@ -190,6 +202,22 @@ class PublicArtworkApiTest {
                 .andExpect(jsonPath("$.descriptions[0].text").value("Original approved text."))
                 .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString(
                         "Private new draft"))));
+    }
+
+    @Test
+    void legacySnapshotWithoutAnUnambiguousAudioAssociationRemainsAvailableAsText() throws Exception {
+        JsonNode artwork = uploadArtwork("Legacy Study");
+        UUID artworkId = UUID.fromString(artwork.get("id").asText());
+        approveDescription(artworkId, createDescription(artworkId, "Objective", "A blue square."));
+        String slug = publish(artworkId);
+        jdbc.update("UPDATE published_descriptions SET audio_asset_id = NULL");
+        jdbc.update("UPDATE publications SET qr_asset_id = NULL");
+
+        mvc.perform(get("/public/artworks/{slug}", slug))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.qrUrl").value(org.hamcrest.Matchers.nullValue()))
+                .andExpect(jsonPath("$.descriptions[0].text").value("A blue square."))
+                .andExpect(jsonPath("$.descriptions[0].audioUrl").value(org.hamcrest.Matchers.nullValue()));
     }
 
     private String publish(UUID artworkId) throws Exception {

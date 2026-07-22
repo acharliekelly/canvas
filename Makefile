@@ -33,6 +33,7 @@ verify:
 	cd backend && ./mvnw verify
 	cd frontend && npm ci && npm run lint && npm run typecheck && npm test -- --run && npm run build
 	cd caption-worker && python -m pytest -q
+	$(MAKE) test-infrastructure
 	docker compose config --quiet
 
 e2e:

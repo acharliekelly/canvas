@@ -69,7 +69,7 @@ class DescriptionPostgresIntegrationTest {
     @Autowired PlatformTransactionManager transactionManager;
     @Autowired DataSource dataSource;
 
-    @MockitoBean ObjectStorage storage;
+    @MockitoBean(name = "originalObjectStorage") ObjectStorage storage;
 
     @BeforeEach
     void cleanDatabase() {

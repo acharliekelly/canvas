@@ -67,6 +67,7 @@ export interface CaptionJobResponse {
 export interface PublicationResult {
   publicationId: string;
   slug: string;
+  qrUrl: string;
   publishedAt: string;
   artworkVersion: number;
   created: boolean;
@@ -82,11 +83,12 @@ export interface PublicArtworkResponse {
   title: string;
   credit: string;
   imageUrl: string;
+  qrUrl: string | null;
   descriptions: PublicDescription[];
 }
 
 export interface PublicDescription extends PublishedDescription {
-  audioUrl: string;
+  audioUrl: string | null;
 }
 
 export interface ApiProblem {

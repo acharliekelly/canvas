@@ -5,18 +5,24 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.io.ByteArrayInputStream;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import javax.imageio.ImageIO;
 import javax.sound.sampled.AudioSystem;
 import org.canvas.publication.asset.AudioGenerator.ApprovedDescriptionInput;
 import org.canvas.publication.asset.AudioGenerator.GeneratedBinary;
+import org.canvas.publication.PublicationRepository;
 import org.canvas.storage.ObjectStorage;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -37,23 +43,38 @@ class AssetServiceTest {
 
     @Autowired AssetService assets;
     @Autowired GeneratedAssetRepository repository;
+    @Autowired PublicationRepository publicationRepository;
     @Autowired PlatformTransactionManager transactionManager;
 
     @MockitoBean AudioGenerator audioGenerator;
     @MockitoBean QrCodeGenerator qrCodeGenerator;
-    @MockitoBean ObjectStorage storage;
+    @MockitoBean(name = "generatedObjectStorage") ObjectStorage storage;
+
+    private final Map<String, ObjectStorage.ObjectMetadata> storedObjects = new HashMap<>();
 
     @BeforeEach
     void cleanDatabaseAndConfigureGenerators() {
+        publicationRepository.deleteAll();
         repository.deleteAll();
+        storedObjects.clear();
         when(audioGenerator.cacheNamespace()).thenReturn("placeholder-audio-v1");
         when(qrCodeGenerator.cacheNamespace()).thenReturn("zxing-qr-v1");
         when(audioGenerator.generate(any())).thenReturn(
                 new GeneratedBinary(AUDIO, "audio/wav", "placeholder-audio-v1"));
         when(qrCodeGenerator.generate(any())).thenReturn(
                 new GeneratedBinary(QR, "image/png", "zxing-qr-v1"));
-        when(storage.putGenerated(anyString(), any(), anyLong(), anyString())).thenAnswer(invocation ->
-                new ObjectStorage.StoredObject(invocation.getArgument(0)));
+        when(storage.putGenerated(anyString(), any(), anyLong(), anyString())).thenAnswer(invocation -> {
+            String key = invocation.getArgument(0);
+            storedObjects.put(key, new ObjectStorage.ObjectMetadata(
+                    invocation.getArgument(2), invocation.getArgument(3)));
+            return new ObjectStorage.StoredObject(key);
+        });
+        when(storage.head(anyString())).thenAnswer(invocation ->
+                Optional.ofNullable(storedObjects.get(invocation.getArgument(0))));
+        doAnswer(invocation -> {
+            storedObjects.remove(invocation.getArgument(0));
+            return null;
+        }).when(storage).delete(anyString());
     }
 
     @Test
@@ -104,6 +125,21 @@ class AssetServiceTest {
         assertThat(replacement.getInputKey()).isNotEqualTo(original.getInputKey());
         assertThat(repository.count()).isEqualTo(2);
         verify(audioGenerator, times(2)).generate(any());
+    }
+
+    @Test
+    void missingCachedObjectIsRegeneratedWithoutDuplicatingMetadata() {
+        ApprovedDescriptionInput input = new ApprovedDescriptionInput(
+                REVISION_ID, "Objective", "A blue square.");
+        GeneratedAsset first = assets.audioFor(input);
+
+        storage.delete(first.getObjectKey());
+        GeneratedAsset repaired = assets.audioFor(input);
+
+        assertThat(repaired.getId()).isEqualTo(first.getId());
+        assertThat(repository.count()).isOne();
+        verify(audioGenerator, times(2)).generate(input);
+        verify(storage, times(2)).putGenerated(eq(first.getObjectKey()), any(), anyLong(), anyString());
     }
 
     @Test

@@ -7,8 +7,17 @@ type Readiness = "checking" | "ready" | "unavailable";
 
 export default function App() {
   const publicArtworkMatch = window.location.pathname.match(/^\/artworks\/([^/]+)\/?$/);
-  if (publicArtworkMatch) return <PublicArtworkPage slug={decodeURIComponent(publicArtworkMatch[1])} />;
+  if (publicArtworkMatch) return <PublicArtworkPage slug={decodeSlug(publicArtworkMatch[1])} />;
   return <AdminApp />;
+}
+
+function decodeSlug(value: string): string | null {
+  try {
+    const decoded = decodeURIComponent(value);
+    return /^[a-z0-9-]+$/.test(decoded) ? decoded : null;
+  } catch {
+    return null;
+  }
 }
 
 function AdminApp() {

@@ -55,7 +55,7 @@ class ArtworkApiTest {
     @Autowired
     TomcatServerProperties tomcatServerProperties;
 
-    @MockitoBean
+    @MockitoBean(name = "originalObjectStorage")
     ObjectStorage storage;
 
     @BeforeEach

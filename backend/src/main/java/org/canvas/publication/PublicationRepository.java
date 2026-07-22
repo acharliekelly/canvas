@@ -7,8 +7,6 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface PublicationRepository extends JpaRepository<Publication, UUID> {
-    Optional<Publication> findByArtworkIdAndContentHash(UUID artworkId, String contentHash);
-
     long countByArtworkId(UUID artworkId);
 
     @Query("select coalesce(max(p.publicationVersion), 0) from Publication p where p.artwork.id = :artworkId")

@@ -26,10 +26,12 @@ import org.canvas.artwork.ArtworkRepository;
 import org.canvas.description.DescriptionRepository;
 import org.canvas.publication.PublicationRepository;
 import org.canvas.publication.PublicationService;
+import org.canvas.storage.ObjectStorage;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -42,6 +44,8 @@ import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
@@ -62,7 +66,8 @@ import tools.jackson.databind.ObjectMapper;
 @Testcontainers
 @Import(GeneratedAssetPostgresMinioIntegrationTest.ConcurrentAudioConfiguration.class)
 class GeneratedAssetPostgresMinioIntegrationTest {
-    private static final String BUCKET = "canvas-test-generated-assets";
+    private static final String BUCKET = "canvas-test-originals";
+    private static final String GENERATED_BUCKET = "canvas-test-generated-assets";
     private static final String MINIO_USER = "canvas-minio";
     private static final String MINIO_PASSWORD = "canvas-minio-test-password";
     private static final String PUBLIC_BASE = "https://gallery.example/access";
@@ -98,6 +103,7 @@ class GeneratedAssetPostgresMinioIntegrationTest {
         properties.add("canvas.storage.secret-key", () -> MINIO_PASSWORD);
         properties.add("canvas.storage.region", () -> "us-east-1");
         properties.add("canvas.storage.originals-bucket", () -> BUCKET);
+        properties.add("canvas.storage.generated-bucket", () -> GENERATED_BUCKET);
     }
 
     @Autowired MockMvc mvc;
@@ -111,6 +117,8 @@ class GeneratedAssetPostgresMinioIntegrationTest {
     @Autowired PublicationRepository publicationRepository;
     @Autowired DescriptionRepository descriptionRepository;
     @Autowired ArtworkRepository artworkRepository;
+    @Autowired @Qualifier("originalObjectStorage") ObjectStorage originalStorage;
+    @Autowired PlatformTransactionManager transactionManager;
 
     @BeforeEach
     void prepareRealServices() {
@@ -119,12 +127,18 @@ class GeneratedAssetPostgresMinioIntegrationTest {
         } catch (S3Exception error) {
             if (error.statusCode() != 409) throw error;
         }
+        try {
+            s3.createBucket(CreateBucketRequest.builder().bucket(GENERATED_BUCKET).build());
+        } catch (S3Exception error) {
+            if (error.statusCode() != 409) throw error;
+        }
         jdbc.execute("ALTER TABLE generated_assets DROP CONSTRAINT IF EXISTS generated_assets_kind_commit_test");
-        assetRepository.deleteAll();
         publicationRepository.deleteAll();
+        assetRepository.deleteAll();
         descriptionRepository.deleteAll();
         artworkRepository.deleteAll();
         storedObjectKeys().forEach(this::deleteObject);
+        storedObjectKeys(GENERATED_BUCKET).forEach(key -> deleteObject(GENERATED_BUCKET, key));
         audioGenerator.reset();
     }
 
@@ -166,13 +180,14 @@ class GeneratedAssetPostgresMinioIntegrationTest {
 
         GeneratedAsset committed = assetRepository.findAll().getFirst();
         byte[] storedAudio = s3.getObjectAsBytes(GetObjectRequest.builder()
-                .bucket(BUCKET).key(committed.getObjectKey()).build()).asByteArray();
+                .bucket(GENERATED_BUCKET).key(committed.getObjectKey()).build()).asByteArray();
 
         assertThat(failures).isEmpty();
         assertThat(results).hasSize(2)
                 .extracting(GeneratedAsset::getId).containsOnly(committed.getId());
         assertThat(assetRepository.count()).isOne();
-        assertThat(storedObjectKeys()).containsExactly(committed.getObjectKey());
+        assertThat(storedObjectKeys()).isEmpty();
+        assertThat(storedObjectKeys(GENERATED_BUCKET)).containsExactly(committed.getObjectKey());
         assertThat(AudioSystem.getAudioInputStream(new ByteArrayInputStream(storedAudio)).getFrameLength())
                 .isPositive();
         assertThat(audioGenerator.calls()).isOne();
@@ -181,27 +196,31 @@ class GeneratedAssetPostgresMinioIntegrationTest {
     @AfterEach
     void cleanRealServices() {
         jdbc.execute("ALTER TABLE generated_assets DROP CONSTRAINT IF EXISTS generated_assets_kind_commit_test");
-        assetRepository.deleteAll();
         publicationRepository.deleteAll();
+        assetRepository.deleteAll();
         descriptionRepository.deleteAll();
         artworkRepository.deleteAll();
         storedObjectKeys().forEach(this::deleteObject);
+        storedObjectKeys(GENERATED_BUCKET).forEach(key -> deleteObject(GENERATED_BUCKET, key));
     }
 
     @Test
-    void v7PersistsPlayableAndScannableAssetsAndReusesStableContentAddresses() throws Exception {
+    void v8PersistsAssociatedPlayableAndScannableAssetsAndReusesStableContentAddresses() throws Exception {
         JsonNode artwork = uploadArtwork("Blue Study");
         UUID artworkId = UUID.fromString(artwork.get("id").asText());
         JsonNode approved = approve(artworkId,
                 createDescription(artworkId, "Objective", "A blue square."));
-        String slug = publish(artworkId);
+        JsonNode publication = publishResult(artworkId);
+        String slug = publication.get("slug").asText();
 
         assertThat(jdbc.queryForObject(
-                "SELECT count(*) FROM flyway_schema_history WHERE version = '7' AND success", Integer.class))
+                "SELECT count(*) FROM flyway_schema_history WHERE version = '8' AND success", Integer.class))
                 .isOne();
         assertThat(assetRepository.findAll()).hasSize(2)
                 .extracting(GeneratedAsset::getKind).containsExactlyInAnyOrder(AssetKind.AUDIO, AssetKind.QR_CODE);
-        assertThat(storedObjectKeys()).hasSize(3)
+        assertThat(storedObjectKeys(BUCKET)).singleElement()
+                .matches(key -> key.startsWith("artworks/"));
+        assertThat(storedObjectKeys(GENERATED_BUCKET)).hasSize(2)
                 .anyMatch(key -> key.matches("generated/audio/[0-9a-f]{64}\\.wav"))
                 .anyMatch(key -> key.matches("generated/qr/[0-9a-f]{64}\\.png"));
 
@@ -211,13 +230,14 @@ class GeneratedAssetPostgresMinioIntegrationTest {
         byte[] audio = mvc.perform(get(audioUrl)).andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsByteArray();
         assertThat(AudioSystem.getAudioInputStream(new ByteArrayInputStream(audio)).getFrameLength()).isPositive();
-        byte[] qr = mvc.perform(get("/public/artworks/{slug}/qr", slug)).andExpect(status().isOk())
+        byte[] qr = mvc.perform(get(publication.get("qrUrl").asText())).andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsByteArray();
         assertThat(QrTestDecoder.decode(qr)).isEqualTo(PUBLIC_BASE + "/artworks/" + slug);
 
         publish(artworkId);
         assertThat(assetRepository.count()).isEqualTo(2);
-        assertThat(storedObjectKeys()).hasSize(3);
+        assertThat(storedObjectKeys(BUCKET)).hasSize(1);
+        assertThat(storedObjectKeys(GENERATED_BUCKET)).hasSize(2);
 
         JsonNode draft = updateDraft(artworkId, approved, "A cobalt square.");
         approve(artworkId, draft);
@@ -227,7 +247,79 @@ class GeneratedAssetPostgresMinioIntegrationTest {
                 "SELECT count(*) FROM generated_assets WHERE kind = 'AUDIO'", Integer.class)).isEqualTo(2);
         assertThat(jdbc.queryForObject(
                 "SELECT count(*) FROM generated_assets WHERE kind = 'QR_CODE'", Integer.class)).isOne();
-        assertThat(storedObjectKeys()).hasSize(4);
+        assertThat(storedObjectKeys(BUCKET)).hasSize(1);
+        assertThat(storedObjectKeys(GENERATED_BUCKET)).hasSize(3);
+    }
+
+    @Test
+    void routesOriginalArtworkAndGeneratedPublicationAssetsToSeparateBuckets() throws Exception {
+        JsonNode artwork = uploadArtwork("Bucket routing study");
+        UUID artworkId = UUID.fromString(artwork.get("id").asText());
+        approve(artworkId, createDescription(artworkId, "Objective", "A blue square."));
+
+        publish(artworkId);
+
+        assertThat(storedObjectKeys(BUCKET)).singleElement()
+                .matches(key -> key.startsWith("artworks/"));
+        assertThat(storedObjectKeys(GENERATED_BUCKET)).hasSize(2)
+                .anyMatch(key -> key.matches("generated/audio/[0-9a-f]{64}\\.wav"))
+                .anyMatch(key -> key.matches("generated/qr/[0-9a-f]{64}\\.png"));
+    }
+
+    @Test
+    void republishingRepairsADeletedMinioObjectWithoutDuplicateMetadata() throws Exception {
+        JsonNode artwork = uploadArtwork("Repair study");
+        UUID artworkId = UUID.fromString(artwork.get("id").asText());
+        approve(artworkId, createDescription(artworkId, "Objective", "A blue square."));
+        String slug = publish(artworkId);
+        String publicBody = mvc.perform(get("/public/artworks/{slug}", slug))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        String audioUrl = json.readTree(publicBody).get("descriptions").get(0).get("audioUrl").asText();
+        GeneratedAsset audio = assetRepository.findAll().stream()
+                .filter(asset -> asset.getKind() == AssetKind.AUDIO).findFirst().orElseThrow();
+        deleteObject(GENERATED_BUCKET, audio.getObjectKey());
+
+        publish(artworkId);
+
+        assertThat(assetRepository.count()).isEqualTo(2);
+        assertThat(storedObjectKeys(GENERATED_BUCKET)).contains(audio.getObjectKey());
+        byte[] repaired = mvc.perform(get(audioUrl)).andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsByteArray();
+        assertThat(AudioSystem.getAudioInputStream(new ByteArrayInputStream(repaired)).getFrameLength())
+                .isPositive();
+    }
+
+    @Test
+    void persistedAssetUrlsSurviveGeneratorNamespaceAndPublicBaseConfigurationChanges() throws Exception {
+        JsonNode artwork = uploadArtwork("Configuration stability study");
+        UUID artworkId = UUID.fromString(artwork.get("id").asText());
+        approve(artworkId, createDescription(artworkId, "Objective", "A blue square."));
+        JsonNode publication = publishResult(artworkId);
+        String slug = publication.get("slug").asText();
+        String publicBody = mvc.perform(get("/public/artworks/{slug}", slug))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        String audioUrl = json.readTree(publicBody).get("descriptions").get(0).get("audioUrl").asText();
+        UUID publishedDescriptionId = UUID.fromString(audioUrl.split("/")[5]);
+        UUID audioAssetId = UUID.fromString(audioUrl.substring(audioUrl.lastIndexOf('/') + 1));
+        String qrUrl = publication.get("qrUrl").asText();
+        UUID qrAssetId = UUID.fromString(qrUrl.substring(qrUrl.lastIndexOf('/') + 1));
+
+        audioGenerator.changeNamespace("replacement-audio-v2");
+        PublicationService changedConfiguration = new PublicationService(publicationRepository,
+                artworkRepository, descriptionRepository, originalStorage, assetService,
+                java.net.URI.create("https://replacement.example/new-base"));
+
+        TransactionTemplate transaction = new TransactionTemplate(transactionManager);
+        PublicationService.PublicAsset persistedAudio = transaction.execute(ignored ->
+                changedConfiguration.publicAudio(slug, publishedDescriptionId, audioAssetId));
+        PublicationService.PublicAsset persistedQr = transaction.execute(ignored ->
+                changedConfiguration.publicQr(slug, qrAssetId));
+        byte[] audio = java.util.Objects.requireNonNull(persistedAudio).content().readAllBytes();
+        byte[] qr = java.util.Objects.requireNonNull(persistedQr).content().readAllBytes();
+
+        assertThat(AudioSystem.getAudioInputStream(new ByteArrayInputStream(audio)).getFrameLength()).isPositive();
+        assertThat(QrTestDecoder.decode(qr)).isEqualTo(PUBLIC_BASE + "/artworks/" + slug);
+        assertThat(audioGenerator.calls()).isOne();
     }
 
     @Test
@@ -237,7 +329,8 @@ class GeneratedAssetPostgresMinioIntegrationTest {
         JsonNode approved = approve(artworkId,
                 createDescription(artworkId, "Objective", "Original approved text."));
         String slug = publish(artworkId);
-        List<String> originalObjects = storedObjectKeys();
+        List<String> originalObjects = storedObjectKeys(BUCKET);
+        List<String> originalGeneratedObjects = storedObjectKeys(GENERATED_BUCKET);
         JsonNode draft = updateDraft(artworkId, approved, "Replacement approved text.");
         approve(artworkId, draft);
         jdbc.execute("ALTER TABLE generated_assets ADD CONSTRAINT generated_assets_kind_commit_test "
@@ -247,7 +340,9 @@ class GeneratedAssetPostgresMinioIntegrationTest {
                 artworkId, artworkRepository.findById(artworkId).orElseThrow().getVersion(), ADMIN_ID))
                 .isInstanceOf(RuntimeException.class);
 
-        assertThat(storedObjectKeys()).containsExactlyInAnyOrderElementsOf(originalObjects);
+        assertThat(storedObjectKeys(BUCKET)).containsExactlyInAnyOrderElementsOf(originalObjects);
+        assertThat(storedObjectKeys(GENERATED_BUCKET))
+                .containsExactlyInAnyOrderElementsOf(originalGeneratedObjects);
         assertThat(assetRepository.count()).isEqualTo(2);
         String publicBody = mvc.perform(get("/public/artworks/{slug}", slug))
                 .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
@@ -299,22 +394,34 @@ class GeneratedAssetPostgresMinioIntegrationTest {
     }
 
     private String publish(UUID artworkId) throws Exception {
+        return publishResult(artworkId).get("slug").asText();
+    }
+
+    private JsonNode publishResult(UUID artworkId) throws Exception {
         String response = mvc.perform(post("/api/artworks/{artworkId}/publication", artworkId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"version\":" + artworkRepository.findById(artworkId).orElseThrow().getVersion()
                                 + "}")
-                        .with(user("admin")).with(csrf()))
+                .with(user("admin")).with(csrf()))
                 .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
-        return json.readTree(response).get("slug").asText();
+        return json.readTree(response);
     }
 
     private List<String> storedObjectKeys() {
-        return s3.listObjectsV2(ListObjectsV2Request.builder().bucket(BUCKET).build())
+        return storedObjectKeys(BUCKET);
+    }
+
+    private List<String> storedObjectKeys(String bucket) {
+        return s3.listObjectsV2(ListObjectsV2Request.builder().bucket(bucket).build())
                 .contents().stream().map(object -> object.key()).sorted().toList();
     }
 
     private void deleteObject(String key) {
-        s3.deleteObject(DeleteObjectRequest.builder().bucket(BUCKET).key(key).build());
+        deleteObject(BUCKET, key);
+    }
+
+    private void deleteObject(String bucket, String key) {
+        s3.deleteObject(DeleteObjectRequest.builder().bucket(bucket).key(key).build());
     }
 
     private static void await(CountDownLatch latch) {
@@ -341,6 +448,12 @@ class GeneratedAssetPostgresMinioIntegrationTest {
         private final PlaceholderAudioGenerator delegate = new PlaceholderAudioGenerator();
         private final AtomicInteger calls = new AtomicInteger();
         private volatile CountDownLatch generationBarrier;
+        private volatile String cacheNamespace = "placeholder-audio-v1";
+
+        @Override
+        public String cacheNamespace() {
+            return cacheNamespace;
+        }
 
         @Override
         public GeneratedBinary generate(ApprovedDescriptionInput input) {
@@ -364,6 +477,11 @@ class GeneratedAssetPostgresMinioIntegrationTest {
         void reset() {
             calls.set(0);
             generationBarrier = null;
+            cacheNamespace = "placeholder-audio-v1";
+        }
+
+        void changeNamespace(String replacement) {
+            cacheNamespace = replacement;
         }
 
         private static void awaitCompetingGeneration(CountDownLatch barrier) {

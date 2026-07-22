@@ -7,7 +7,7 @@ const OBJECTIVE = "A blue square sits above two narrow gold lines.";
 const SUBJECTIVE = "The repeated geometry creates a measured visual rhythm.";
 const UNPUBLISHED_DRAFT_CANARY = "UNPUBLISHED-DRAFT-CANARY-7b35143f must remain private.";
 
-test("administrator publishes ordered manual descriptions with cached audio and QR", async ({ page, browser }) => {
+test("administrator publishes ordered manual descriptions with cached audio and QR", async ({ page, browser, baseURL }) => {
   await signIn(page);
   await uploadArtwork(page, TITLE);
 
@@ -39,7 +39,7 @@ test("administrator publishes ordered manual descriptions with cached audio and 
   await addDescription(page, "Private review", UNPUBLISHED_DRAFT_CANARY);
   await expect(page.getByRole("region", { name: "Private review description" })).toContainText("Status: Draft");
 
-  const anonymousContext = await browser.newContext();
+  const anonymousContext = await browser.newContext({ baseURL });
   const publicPage = await anonymousContext.newPage();
   const anonymousSession = await publicPage.request.get("/api/session");
   expect(anonymousSession.ok()).toBe(true);
@@ -53,7 +53,13 @@ test("administrator publishes ordered manual descriptions with cached audio and 
   await expect(descriptions.nth(1).getByRole("heading")).toHaveText("Subjective");
   await expect(descriptions.nth(1)).toContainText(SUBJECTIVE);
   await expect(publicPage.getByText(UNPUBLISHED_DRAFT_CANARY, { exact: true })).toHaveCount(0);
-  await expect(publicPage.getByLabel(`Listen to Objective description for ${TITLE}`)).toHaveAttribute("src", /audio$/);
+  await expect(publicPage.getByLabel(`Listen to Objective description for ${TITLE}`)).toHaveAttribute("src", /audio\/[0-9a-f-]+$/);
+  await publicPage.setViewportSize({ width: 320, height: 720 });
+  await expect.poll(() => publicPage.locator("html").evaluate((element) => element.scrollWidth <= element.clientWidth))
+    .toBe(true);
+  const audioBounds = await publicPage.getByLabel(`Listen to Objective description for ${TITLE}`).boundingBox();
+  expect(audioBounds).not.toBeNull();
+  expect((audioBounds?.x ?? 0) + (audioBounds?.width ?? 0)).toBeLessThanOrEqual(320);
 
   const publicResponse = await publicPage.request.get(`/public${publicHref?.replace("/artworks", "/artworks")}`);
   const publicJson = await publicResponse.json();
@@ -66,7 +72,9 @@ test("administrator publishes ordered manual descriptions with cached audio and 
 
   const audioUrl = await publicPage.getByLabel(`Listen to Objective description for ${TITLE}`).getAttribute("src");
   const firstAudio = await publicPage.request.get(audioUrl as string);
-  const firstQr = await publicPage.request.get(`${publicHref?.replace("/artworks/", "/public/artworks/")}/qr`);
+  const qrUrl = await page.getByRole("link", { name: `Download QR code for ${TITLE}` }).getAttribute("href");
+  expect(qrUrl).toMatch(/^\/public\/artworks\/e2e-manual-description-study-[0-9a-f-]+\/qr\/[0-9a-f-]+$/);
+  const firstQr = await publicPage.request.get(qrUrl as string);
   expect(firstAudio.headers()["content-type"]).toContain("audio/wav");
   expect((await firstAudio.body()).subarray(0, 4).toString("ascii")).toBe("RIFF");
 
@@ -74,7 +82,7 @@ test("administrator publishes ordered manual descriptions with cached audio and 
   await page.getByRole("button", { name: "Confirm publication" }).click();
   await expect(page.getByText("Published artwork is already up to date", { exact: true })).toBeVisible();
   const secondAudio = await publicPage.request.get(audioUrl as string);
-  const secondQr = await publicPage.request.get(`${publicHref?.replace("/artworks/", "/public/artworks/")}/qr`);
+  const secondQr = await publicPage.request.get(qrUrl as string);
   expect(secondAudio.headers().etag).toBe(firstAudio.headers().etag);
   expect(secondQr.headers().etag).toBe(firstQr.headers().etag);
   await anonymousContext.close();

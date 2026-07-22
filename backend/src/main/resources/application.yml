@@ -31,7 +31,8 @@ canvas:
   caption-worker-url: ${CANVAS_CAPTION_WORKER_URL:http://localhost:8000}
   storage:
     endpoint: ${CANVAS_S3_ENDPOINT:http://localhost:9000}
-    access-key: ${MINIO_ROOT_USER:canvas-minio}
-    secret-key: ${MINIO_ROOT_PASSWORD:canvas-minio-local-password}
+    access-key: ${CANVAS_S3_ACCESS_KEY:canvas-backend}
+    secret-key: ${CANVAS_S3_SECRET_KEY:canvas-backend-local-secret}
     region: ${CANVAS_S3_REGION:us-east-1}
     originals-bucket: ${CANVAS_ORIGINALS_BUCKET}
+    generated-bucket: ${CANVAS_GENERATED_BUCKET}

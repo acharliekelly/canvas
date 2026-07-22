@@ -195,6 +195,7 @@ describe("DescriptionEditor", () => {
       .mockResolvedValueOnce({
         publicationId: "publication-1",
         slug: "blue-study-123",
+        qrUrl: "/public/artworks/blue-study-123/qr/qr-asset-1",
         publishedAt: "2026-07-21T12:00:00Z",
         artworkVersion: 6,
         created: true,

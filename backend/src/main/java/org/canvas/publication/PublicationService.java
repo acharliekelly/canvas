@@ -20,11 +20,13 @@ import org.canvas.description.DescriptionRepository;
 import org.canvas.description.DescriptionRevision;
 import org.canvas.description.RevisionState;
 import org.canvas.publication.asset.AssetService;
+import org.canvas.publication.asset.AssetKind;
 import org.canvas.publication.asset.AudioGenerator.ApprovedDescriptionInput;
 import org.canvas.publication.asset.GeneratedAsset;
 import org.canvas.publication.api.PublicArtworkResponse;
 import org.canvas.storage.ObjectStorage;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -39,8 +41,9 @@ public class PublicationService {
     private final AssetService assets;
     private final URI publicBaseUri;
 
-    PublicationService(PublicationRepository repository, ArtworkRepository artworkRepository,
-            DescriptionRepository descriptionRepository, ObjectStorage storage, AssetService assets,
+    public PublicationService(PublicationRepository repository, ArtworkRepository artworkRepository,
+            DescriptionRepository descriptionRepository,
+            @Qualifier("originalObjectStorage") ObjectStorage storage, AssetService assets,
             @Value("${canvas.public-base-url}") URI publicBaseUri) {
         this.repository = repository;
         this.artworkRepository = artworkRepository;
@@ -67,8 +70,8 @@ public class PublicationService {
 
         String hash = contentHash(artwork, approved);
         Publication current = repository.findCurrentByArtworkId(artworkId).orElse(null);
-        Publication publication = repository.findByArtworkIdAndContentHash(artworkId, hash).orElse(null);
-        boolean created = publication == null;
+        boolean created = current == null || !current.getContentHash().equals(hash);
+        Publication publication = created ? null : current;
         String slug = artwork.getPublicSlug() == null ? slugFor(artwork) : artwork.getPublicSlug();
 
         if (created) {
@@ -82,10 +85,20 @@ public class PublicationService {
         }
 
         try {
-            for (ApprovedSnapshot snapshot : approved) {
-                assets.audioFor(snapshot.audioInput());
+            List<PublishedDescription> publishedDescriptions = publication.getDescriptions();
+            for (int index = 0; index < publishedDescriptions.size(); index++) {
+                PublishedDescription description = publishedDescriptions.get(index);
+                ApprovedDescriptionInput input = approved.get(index).audioInput();
+                GeneratedAsset audio = description.getAudioAsset() == null
+                        ? assets.audioFor(input)
+                        : assets.ensureAudio(description.getAudioAsset(), input);
+                description.associateAudioAsset(audio);
             }
-            assets.qrFor(publicUri(slug), publication.getId());
+            GeneratedAsset qr = publication.getQrAsset() == null
+                    ? assets.qrFor(publicUri(slug), publication.getId())
+                    : assets.ensureQr(publication.getQrAsset(), publicUri(slug));
+            publication.associateQrAsset(qr);
+            publication = repository.saveAndFlush(publication);
         } catch (RuntimeException error) {
             throw new PublicationProblem("asset_generation_unavailable",
                     "Publication assets could not be prepared. Try publishing again.", error);
@@ -123,32 +136,36 @@ public class PublicationService {
     }
 
     @Transactional(readOnly = true)
-    public PublicAsset publicAudio(String slug, UUID publishedDescriptionId) {
+    public PublicAsset publicAudio(String slug, UUID publishedDescriptionId, UUID assetId) {
         Publication publication = currentBySlug(slug);
         PublishedDescription description = publication.getDescriptions().stream()
                 .filter(candidate -> candidate.getId().equals(publishedDescriptionId))
                 .findFirst()
                 .orElseThrow(() -> new PublicationProblem("public_asset_not_found",
                         "Published audio was not found."));
-        try {
-            GeneratedAsset asset = assets.existingAudio(new ApprovedDescriptionInput(
-                    description.getApprovedRevisionId(), description.getLabel(), description.getText()));
-            return publicAsset(asset);
-        } catch (AssetService.AssetProblem error) {
+        GeneratedAsset asset = description.getAudioAsset();
+        if (asset == null || asset.getKind() != AssetKind.AUDIO) {
             throw new PublicationProblem("public_asset_unavailable",
-                    "The published asset is temporarily unavailable.", error);
+                    "The published asset is temporarily unavailable.");
         }
+        if (!asset.getId().equals(assetId)) {
+            throw new PublicationProblem("public_asset_not_found", "Published audio was not found.");
+        }
+        return publicAsset(asset);
     }
 
     @Transactional(readOnly = true)
-    public PublicAsset publicQr(String slug) {
-        currentBySlug(slug);
-        try {
-            return publicAsset(assets.existingQr(publicUri(slug)));
-        } catch (AssetService.AssetProblem error) {
+    public PublicAsset publicQr(String slug, UUID assetId) {
+        Publication publication = currentBySlug(slug);
+        GeneratedAsset asset = publication.getQrAsset();
+        if (asset == null || asset.getKind() != AssetKind.QR_CODE) {
             throw new PublicationProblem("public_asset_unavailable",
-                    "The published asset is temporarily unavailable.", error);
+                    "The published asset is temporarily unavailable.");
         }
+        if (!asset.getId().equals(assetId)) {
+            throw new PublicationProblem("public_asset_not_found", "Published QR code was not found.");
+        }
+        return publicAsset(asset);
     }
 
     private PublicAsset publicAsset(GeneratedAsset asset) {
@@ -191,8 +208,11 @@ public class PublicationService {
     }
 
     private static PublicationResult result(Publication publication, long artworkVersion, boolean created) {
+        String qrUrl = publication.getQrAsset() == null ? null
+                : "/public/artworks/" + publication.getArtwork().getPublicSlug()
+                        + "/qr/" + publication.getQrAsset().getId();
         return new PublicationResult(publication.getId(), publication.getArtwork().getPublicSlug(),
-                publication.getPublishedAt(), artworkVersion, created,
+                publication.getPublishedAt(), artworkVersion, created, qrUrl,
                 publication.getDescriptions().stream()
                         .map(item -> new PublishedDescriptionResult(item.getLabel(), item.getText()))
                         .toList());
@@ -250,7 +270,8 @@ public class PublicationService {
     }
 
     public record PublicationResult(UUID publicationId, String slug, Instant publishedAt,
-            long artworkVersion, boolean created, List<PublishedDescriptionResult> descriptions) {}
+            long artworkVersion, boolean created, String qrUrl,
+            List<PublishedDescriptionResult> descriptions) {}
 
     public record PublishedDescriptionResult(String label, String text) {}
 

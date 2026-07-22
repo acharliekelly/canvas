@@ -67,6 +67,7 @@ class ArtworkUploadIntegrationTest {
         properties.add("canvas.storage.secret-key", () -> MINIO_PASSWORD);
         properties.add("canvas.storage.region", () -> "us-east-1");
         properties.add("canvas.storage.originals-bucket", () -> BUCKET);
+        properties.add("canvas.storage.generated-bucket", () -> "canvas-test-generated-assets");
     }
 
     @Autowired MockMvc mvc;

@@ -2,11 +2,14 @@ package org.canvas.storage;
 
 import java.io.InputStream;
 import java.util.UUID;
+import java.util.Optional;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.services.s3.model.S3Exception;
 
 public class S3ObjectStorage implements ObjectStorage {
     private final S3Client client;
@@ -49,5 +52,19 @@ public class S3ObjectStorage implements ObjectStorage {
     @Override
     public InputStream get(String objectKey) {
         return client.getObject(GetObjectRequest.builder().bucket(bucket).key(objectKey).build());
+    }
+
+    @Override
+    public Optional<ObjectMetadata> head(String objectKey) {
+        try {
+            var response = client.headObject(HeadObjectRequest.builder()
+                    .bucket(bucket).key(objectKey).build());
+            return Optional.of(new ObjectMetadata(response.contentLength(), response.contentType()));
+        } catch (S3Exception error) {
+            if (error.statusCode() == 404) {
+                return Optional.empty();
+            }
+            throw error;
+        }
     }
 }

@@ -147,6 +147,18 @@ button:disabled {
   max-width: 100%;
 }
 
+.public-artwork audio {
+  display: block;
+  max-width: 100%;
+  width: 100%;
+}
+
+.public-artwork h1,
+.public-artwork h2,
+.public-artwork p {
+  overflow-wrap: anywhere;
+}
+
 .published-descriptions {
   display: grid;
   gap: 1.5rem;

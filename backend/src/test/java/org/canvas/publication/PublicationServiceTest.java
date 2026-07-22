@@ -60,18 +60,21 @@ class PublicationServiceTest {
     @Autowired
     GeneratedAssetRepository assetRepository;
 
-    @MockitoBean
-    ObjectStorage storage;
+    @MockitoBean(name = "originalObjectStorage")
+    ObjectStorage originalStorage;
+
+    @MockitoBean(name = "generatedObjectStorage")
+    ObjectStorage generatedStorage;
 
     @BeforeEach
     void cleanDatabase() {
-        assetRepository.deleteAll();
         publicationRepository.deleteAll();
+        assetRepository.deleteAll();
         descriptionRepository.deleteAll();
         artworkRepository.deleteAll();
-        when(storage.put(any(), anyLong(), anyString()))
+        when(originalStorage.put(any(), anyLong(), anyString()))
                 .thenAnswer(invocation -> new ObjectStorage.StoredObject("originals/" + UUID.randomUUID()));
-        when(storage.putGenerated(anyString(), any(), anyLong(), anyString()))
+        when(generatedStorage.putGenerated(anyString(), any(), anyLong(), anyString()))
                 .thenAnswer(invocation -> new ObjectStorage.StoredObject(invocation.getArgument(0)));
     }
 
@@ -96,7 +99,7 @@ class PublicationServiceTest {
         ArtworkDetail artwork = createArtwork("Storage failure");
         approve(artwork.id(), descriptionService.createManual(
                 artwork.id(), "Objective", "A blue square."));
-        when(storage.putGenerated(startsWith("generated/qr/"), any(), anyLong(), anyString()))
+        when(generatedStorage.putGenerated(startsWith("generated/qr/"), any(), anyLong(), anyString()))
                 .thenThrow(new IllegalStateException("simulated QR storage failure"));
 
         assertThatThrownBy(() -> service.publish(
@@ -108,7 +111,7 @@ class PublicationServiceTest {
         assertThat(publicationRepository.count()).isZero();
         assertThat(assetRepository.count()).isZero();
         assertThat(artworkRepository.findById(artwork.id()).orElseThrow().getPublicSlug()).isNull();
-        verify(storage).delete(startsWith("generated/audio/"));
+        verify(generatedStorage).delete(startsWith("generated/audio/"));
     }
 
     @Test
@@ -228,7 +231,7 @@ class PublicationServiceTest {
     }
 
     @Test
-    void returningToAnExactApprovedRevisionOrderReusesItsOlderSnapshot() throws Exception {
+    void returningToAnExactApprovedRevisionOrderCreatesANewAuditSnapshot() throws Exception {
         ArtworkDetail artwork = createArtwork("Reusable ordered revisions");
         DescriptionResponse objective = approve(artwork.id(),
                 descriptionService.createManual(artwork.id(), "Objective", "A blue square."));
@@ -245,11 +248,11 @@ class PublicationServiceTest {
         PublicationResult restored = service.publish(artwork.id(), currentVersion(artwork.id()), ADMIN_ID);
 
         assertThat(reversed.created()).isTrue();
-        assertThat(restored.created()).isFalse();
-        assertThat(restored.publicationId()).isEqualTo(original.publicationId());
-        assertThat(publicationRepository.countByArtworkId(artwork.id())).isEqualTo(2);
+        assertThat(restored.created()).isTrue();
+        assertThat(restored.publicationId()).isNotEqualTo(original.publicationId());
+        assertThat(publicationRepository.countByArtworkId(artwork.id())).isEqualTo(3);
         assertThat(publicationRepository.findCurrentByArtworkId(artwork.id())).get()
-                .extracting(Publication::getId).isEqualTo(original.publicationId());
+                .extracting(Publication::getId).isEqualTo(restored.publicationId());
     }
 
     private DescriptionResponse approve(UUID artworkId, DescriptionResponse draft) {

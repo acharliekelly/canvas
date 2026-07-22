@@ -4,6 +4,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.doAnswer;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -19,6 +20,7 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.imageio.ImageIO;
@@ -51,31 +53,44 @@ class PublicAssetApiTest {
     @Autowired DescriptionRepository descriptionRepository;
     @Autowired ArtworkRepository artworkRepository;
 
-    @MockitoBean ObjectStorage storage;
+    @MockitoBean(name = "originalObjectStorage") ObjectStorage originalStorage;
+    @MockitoBean(name = "generatedObjectStorage") ObjectStorage generatedStorage;
 
     private final Map<String, byte[]> objects = new HashMap<>();
+    private final Map<String, ObjectStorage.ObjectMetadata> metadata = new HashMap<>();
     private final AtomicInteger sequence = new AtomicInteger();
 
     @BeforeEach
     void cleanDatabaseAndStorage() throws Exception {
-        assetRepository.deleteAll();
         publicationRepository.deleteAll();
+        assetRepository.deleteAll();
         descriptionRepository.deleteAll();
         artworkRepository.deleteAll();
         objects.clear();
+        metadata.clear();
         sequence.set(0);
-        when(storage.put(any(), anyLong(), anyString())).thenAnswer(invocation -> {
+        when(originalStorage.put(any(), anyLong(), anyString())).thenAnswer(invocation -> {
             String key = "objects/" + sequence.incrementAndGet();
             objects.put(key, invocation.<java.io.InputStream>getArgument(0).readAllBytes());
             return new ObjectStorage.StoredObject(key);
         });
-        when(storage.putGenerated(anyString(), any(), anyLong(), anyString())).thenAnswer(invocation -> {
+        when(generatedStorage.putGenerated(anyString(), any(), anyLong(), anyString())).thenAnswer(invocation -> {
             String key = invocation.getArgument(0);
             objects.put(key, invocation.<java.io.InputStream>getArgument(1).readAllBytes());
+            metadata.put(key, new ObjectStorage.ObjectMetadata(
+                    invocation.getArgument(2), invocation.getArgument(3)));
             return new ObjectStorage.StoredObject(key);
         });
-        when(storage.get(anyString())).thenAnswer(invocation ->
-                new ByteArrayInputStream(objects.get(invocation.getArgument(0))));
+        when(originalStorage.get(anyString())).thenAnswer(invocation -> objectContent(invocation.getArgument(0)));
+        when(generatedStorage.get(anyString())).thenAnswer(invocation -> objectContent(invocation.getArgument(0)));
+        when(generatedStorage.head(anyString())).thenAnswer(invocation ->
+                Optional.ofNullable(metadata.get(invocation.getArgument(0))));
+        doAnswer(invocation -> {
+            String key = invocation.getArgument(0);
+            objects.remove(key);
+            metadata.remove(key);
+            return null;
+        }).when(generatedStorage).delete(anyString());
     }
 
     @Test
@@ -83,7 +98,12 @@ class PublicAssetApiTest {
         JsonNode artwork = uploadArtwork("Blue Study");
         UUID artworkId = UUID.fromString(artwork.get("id").asText());
         approveDescription(artworkId, createDescription(artworkId, "Objective", "A blue square."));
-        String slug = publish(artworkId);
+        JsonNode publication = publishResult(artworkId);
+        String slug = publication.get("slug").asText();
+        GeneratedAsset audioAsset = assetRepository.findAll().stream()
+                .filter(asset -> asset.getKind() == AssetKind.AUDIO).findFirst().orElseThrow();
+        GeneratedAsset qrAsset = assetRepository.findAll().stream()
+                .filter(asset -> asset.getKind() == AssetKind.QR_CODE).findFirst().orElseThrow();
 
         String publicJson = mvc.perform(get("/public/artworks/{slug}", slug))
                 .andExpect(status().isOk())
@@ -91,6 +111,11 @@ class PublicAssetApiTest {
                 .andExpect(jsonPath("$.descriptions[0].audioUrl").isNotEmpty())
                 .andReturn().getResponse().getContentAsString();
         String audioUrl = json.readTree(publicJson).get("descriptions").get(0).get("audioUrl").asText();
+        org.assertj.core.api.Assertions.assertThat(audioUrl).isEqualTo(
+                "/public/artworks/" + slug + "/descriptions/"
+                        + currentDescriptionId(slug) + "/audio/" + audioAsset.getId());
+        org.assertj.core.api.Assertions.assertThat(publication.get("qrUrl").asText()).isEqualTo(
+                "/public/artworks/" + slug + "/qr/" + qrAsset.getId());
 
         byte[] audio = mvc.perform(get(audioUrl))
                 .andExpect(status().isOk())
@@ -101,7 +126,7 @@ class PublicAssetApiTest {
         org.assertj.core.api.Assertions.assertThat(audio)
                 .startsWith(new byte[] { 'R', 'I', 'F', 'F' });
 
-        byte[] qr = mvc.perform(get("/public/artworks/{slug}/qr", slug))
+        byte[] qr = mvc.perform(get(publication.get("qrUrl").asText()))
                 .andExpect(status().isOk())
                 .andExpect(content().contentType(MediaType.IMAGE_PNG))
                 .andExpect(header().string(HttpHeaders.CACHE_CONTROL,
@@ -115,9 +140,10 @@ class PublicAssetApiTest {
 
     @Test
     void generatedAssetsAreInaccessibleWithoutACurrentPublicationOrFromAnOldSnapshot() throws Exception {
-        mvc.perform(get("/public/artworks/not-published/qr"))
+        mvc.perform(get("/public/artworks/not-published/qr/{assetId}", UUID.randomUUID()))
                 .andExpect(status().isNotFound());
-        mvc.perform(get("/public/artworks/not-published/descriptions/{id}/audio", UUID.randomUUID()))
+        mvc.perform(get("/public/artworks/not-published/descriptions/{id}/audio/{assetId}",
+                        UUID.randomUUID(), UUID.randomUUID()))
                 .andExpect(status().isNotFound());
 
         JsonNode artwork = uploadArtwork("Blue Study");
@@ -136,19 +162,30 @@ class PublicAssetApiTest {
     }
 
     @Test
-    void missingPublishedAssetMetadataReturnsSafeServiceUnavailableProblem() throws Exception {
+    void missingPublishedAssetObjectReturnsSafeServiceUnavailableProblem() throws Exception {
         JsonNode artwork = uploadArtwork("Blue Study");
         UUID artworkId = UUID.fromString(artwork.get("id").asText());
         approveDescription(artworkId, createDescription(artworkId, "Objective", "A blue square."));
         String slug = publish(artworkId);
         String audioUrl = audioUrl(slug);
-        assetRepository.deleteAll();
+        GeneratedAsset audio = assetRepository.findAll().stream()
+                .filter(asset -> asset.getKind() == AssetKind.AUDIO).findFirst().orElseThrow();
+        objects.remove(audio.getObjectKey());
+        metadata.remove(audio.getObjectKey());
 
         mvc.perform(get(audioUrl))
                 .andExpect(status().isServiceUnavailable())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
                 .andExpect(jsonPath("$.code").value("public_asset_unavailable"))
                 .andExpect(jsonPath("$.detail").value("The published asset is temporarily unavailable."));
+    }
+
+    private ByteArrayInputStream objectContent(String key) {
+        byte[] content = objects.get(key);
+        if (content == null) {
+            throw new IllegalStateException("Object is missing.");
+        }
+        return new ByteArrayInputStream(content);
     }
 
     private String audioUrl(String slug) throws Exception {
@@ -158,12 +195,21 @@ class PublicAssetApiTest {
     }
 
     private String publish(UUID artworkId) throws Exception {
+        return publishResult(artworkId).get("slug").asText();
+    }
+
+    private JsonNode publishResult(UUID artworkId) throws Exception {
         String response = mvc.perform(post("/api/artworks/{artworkId}/publication", artworkId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"version\":" + artworkVersion(artworkId) + "}")
                         .with(user("admin")).with(csrf()))
                 .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
-        return json.readTree(response).get("slug").asText();
+        return json.readTree(response);
+    }
+
+    private UUID currentDescriptionId(String slug) {
+        return publicationRepository.findCurrentBySlug(slug).orElseThrow()
+                .getDescriptions().getFirst().getId();
     }
 
     private JsonNode uploadArtwork(String title) throws Exception {

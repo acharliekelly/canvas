@@ -47,7 +47,8 @@ describe("PublishPanel", () => {
     const onPublished = vi.fn();
     mockedApiFetch.mockResolvedValueOnce({
       publicationId: "publication-1", slug: "blue-study-123", publishedAt: "2026-07-21T12:00:00Z",
-      artworkVersion: 4, created: true, descriptions: [{ label: "Objective", text: "A blue square." }],
+      artworkVersion: 4, created: true, qrUrl: "/public/artworks/blue-study-123/qr/qr-asset-1",
+      descriptions: [{ label: "Objective", text: "A blue square." }],
     });
     render(<PublishPanel artworkId="artwork-1" artworkTitle="Blue Study" artworkVersion={3}
       descriptions={[approvedDescription("objective", "Objective", "A blue square.", 0)]}
@@ -68,7 +69,7 @@ describe("PublishPanel", () => {
     expect(screen.getByRole("link", { name: "Open published artwork" }))
       .toHaveAttribute("href", "/artworks/blue-study-123");
     expect(screen.getByRole("link", { name: "Download QR code for Blue Study" }))
-      .toHaveAttribute("href", "/public/artworks/blue-study-123/qr");
+      .toHaveAttribute("href", "/public/artworks/blue-study-123/qr/qr-asset-1");
     expect(mockedApiFetch).toHaveBeenCalledWith("/api/artworks/artwork-1/publication", {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ version: 3 }),
     });
@@ -84,6 +85,7 @@ describe("PublishPanel", () => {
       publishedAt: string;
       artworkVersion: number;
       created: boolean;
+      qrUrl: string;
       descriptions: { label: string; text: string }[];
     }) => void;
     mockedApiFetch.mockReturnValueOnce(new Promise((resolve) => { completePublication = resolve; }));
@@ -102,7 +104,8 @@ describe("PublishPanel", () => {
 
     completePublication({
       publicationId: "publication-1", slug: "blue-study-123", publishedAt: "2026-07-21T12:00:00Z",
-      artworkVersion: 4, created: true, descriptions: [{ label: "Objective", text: "A blue square." }],
+      artworkVersion: 4, created: true, qrUrl: "/public/artworks/blue-study-123/qr/qr-asset-1",
+      descriptions: [{ label: "Objective", text: "A blue square." }],
     });
     expect(await screen.findByRole("status")).toHaveTextContent("Artwork published");
     expect(triggerFocus).toHaveBeenCalledTimes(1);

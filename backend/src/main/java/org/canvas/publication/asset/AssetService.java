@@ -9,6 +9,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
@@ -18,6 +19,7 @@ import org.canvas.storage.ObjectStorage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.Ordered;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -34,7 +36,8 @@ public class AssetService {
     private final ConcurrentHashMap<AssetCacheKey, LockEntry> inputLocks = new ConcurrentHashMap<>();
 
     AssetService(GeneratedAssetRepository repository, AudioGenerator audioGenerator,
-            QrCodeGenerator qrCodeGenerator, ObjectStorage storage) {
+            QrCodeGenerator qrCodeGenerator,
+            @Qualifier("generatedObjectStorage") ObjectStorage storage) {
         this.repository = repository;
         this.audioGenerator = audioGenerator;
         this.qrCodeGenerator = qrCodeGenerator;
@@ -46,6 +49,7 @@ public class AssetService {
         String inputKey = audioInputKey(input);
         serializeForTransaction(AssetKind.AUDIO, inputKey);
         return repository.findByKindAndInputKey(AssetKind.AUDIO, inputKey)
+                .map(asset -> ensureAudioStored(asset, input, inputKey))
                 .orElseGet(() -> storeAudio(input, inputKey));
     }
 
@@ -54,7 +58,22 @@ public class AssetService {
         String inputKey = qrInputKey(publicUri);
         serializeForTransaction(AssetKind.QR_CODE, inputKey);
         return repository.findByKindAndInputKey(AssetKind.QR_CODE, inputKey)
+                .map(asset -> ensureQrStored(asset, publicUri, inputKey))
                 .orElseGet(() -> storeQr(publicUri, sourcePublicationId, inputKey));
+    }
+
+    @Transactional
+    public GeneratedAsset ensureAudio(GeneratedAsset asset, ApprovedDescriptionInput input) {
+        requireKind(asset, AssetKind.AUDIO);
+        serializeForTransaction(AssetKind.AUDIO, asset.getInputKey());
+        return ensureAudioStored(asset, input, audioInputKey(input));
+    }
+
+    @Transactional
+    public GeneratedAsset ensureQr(GeneratedAsset asset, URI publicUri) {
+        requireKind(asset, AssetKind.QR_CODE);
+        serializeForTransaction(AssetKind.QR_CODE, asset.getInputKey());
+        return ensureQrStored(asset, publicUri, qrInputKey(publicUri));
     }
 
     @Transactional(readOnly = true)
@@ -89,6 +108,55 @@ public class AssetService {
         ObjectStorage.StoredObject stored = store("generated/qr/" + inputKey + ".png", binary);
         return repository.saveAndFlush(GeneratedAsset.qrCode(
                 inputKey, binary, stored.objectKey(), sourcePublicationId));
+    }
+
+    private GeneratedAsset ensureAudioStored(GeneratedAsset asset, ApprovedDescriptionInput input,
+            String expectedInputKey) {
+        if (hasExpectedObject(asset)) {
+            return asset;
+        }
+        if (!asset.getInputKey().equals(expectedInputKey)) {
+            throw new AssetProblem("Published audio cannot be restored with the active generator configuration.");
+        }
+        restore(asset, audioGenerator.generate(input));
+        return asset;
+    }
+
+    private GeneratedAsset ensureQrStored(GeneratedAsset asset, URI publicUri, String expectedInputKey) {
+        if (hasExpectedObject(asset)) {
+            return asset;
+        }
+        if (!asset.getInputKey().equals(expectedInputKey)) {
+            throw new AssetProblem("Published QR code cannot be restored with the active URL configuration.");
+        }
+        restore(asset, qrCodeGenerator.generate(publicUri));
+        return asset;
+    }
+
+    private boolean hasExpectedObject(GeneratedAsset asset) {
+        return storage.head(asset.getObjectKey())
+                .filter(metadata -> metadata.byteSize() == asset.getByteSize())
+                .filter(metadata -> Objects.equals(metadata.mediaType(), asset.getMediaType()))
+                .isPresent();
+    }
+
+    private void restore(GeneratedAsset asset, GeneratedBinary binary) {
+        if (!asset.getGenerator().equals(binary.generator())
+                || !asset.getMediaType().equals(binary.mediaType())
+                || asset.getByteSize() != binary.bytes().length) {
+            throw new AssetProblem("Generated replacement did not match the published asset metadata.");
+        }
+        byte[] bytes = binary.bytes();
+        storage.putGenerated(asset.getObjectKey(), new ByteArrayInputStream(bytes),
+                bytes.length, binary.mediaType());
+        asset.markRestored();
+        repository.save(asset);
+    }
+
+    private static void requireKind(GeneratedAsset asset, AssetKind expected) {
+        if (asset.getKind() != expected) {
+            throw new AssetProblem("Published asset has the wrong kind.");
+        }
     }
 
     private ObjectStorage.StoredObject store(String objectKey, GeneratedBinary binary) {

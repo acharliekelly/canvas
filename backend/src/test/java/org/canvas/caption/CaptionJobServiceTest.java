@@ -48,7 +48,7 @@ class CaptionJobServiceTest {
     @Autowired PlatformTransactionManager transactionManager;
 
     @MockitoBean CaptionClient client;
-    @MockitoBean ObjectStorage storage;
+    @MockitoBean(name = "originalObjectStorage") ObjectStorage storage;
     @MockitoBean(name = "captionTaskExecutor") Executor executor;
 
     @BeforeEach

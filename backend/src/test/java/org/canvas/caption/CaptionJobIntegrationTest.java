@@ -46,7 +46,7 @@ class CaptionJobIntegrationTest {
     @Autowired ArtworkRepository artworks;
 
     @MockitoBean CaptionClient client;
-    @MockitoBean ObjectStorage storage;
+    @MockitoBean(name = "originalObjectStorage") ObjectStorage storage;
 
     @BeforeEach
     void setUp() {
