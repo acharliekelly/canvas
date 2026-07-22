@@ -68,6 +68,10 @@ public class Artwork {
         updatedAt = Instant.now();
     }
 
+    public void markDescriptionCollectionChanged() {
+        updatedAt = Instant.now();
+    }
+
     public UUID getId() { return id; }
     public String getTitle() { return title; }
     public String getCredit() { return credit; }

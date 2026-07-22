@@ -117,7 +117,7 @@ class DescriptionApiTest {
                 .andExpect(jsonPath("$.revisions[0].state").value("APPROVED"))
                 .andExpect(jsonPath("$.revisions[1].text").value("A cobalt square."));
 
-        long artworkVersion = artwork.get("version").asLong();
+        long artworkVersion = artworkVersion(artworkId);
         mvc.perform(put("/api/artworks/{artworkId}/description-order", artworkId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"descriptionIds\":[\"" + subjective.get("descriptionId").asText()
@@ -159,7 +159,7 @@ class DescriptionApiTest {
 
         mvc.perform(put("/api/artworks/{artworkId}/description-order", firstId)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"descriptionIds\":[],\"version\":" + firstArtwork.get("version").asLong() + "}")
+                        .content("{\"descriptionIds\":[],\"version\":" + artworkVersion(firstId) + "}")
                         .with(user("admin"))
                         .with(csrf()))
                 .andExpect(status().isBadRequest())
@@ -195,6 +195,14 @@ class DescriptionApiTest {
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
         return json.readTree(response);
+    }
+
+    private long artworkVersion(UUID artworkId) throws Exception {
+        String response = mvc.perform(get("/api/artworks/{artworkId}", artworkId)
+                        .with(user("admin")))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        return json.readTree(response).get("version").asLong();
     }
 
     private static MockMultipartFile validPng() throws Exception {

@@ -51,6 +51,9 @@ public class Description {
     @JoinColumn(name = "current_revision_id", unique = true)
     private DescriptionRevision currentRevision;
 
+    @Column(name = "current_revision_owner_id")
+    private UUID currentRevisionOwnerId;
+
     @OneToMany(mappedBy = "description", cascade = {CascadeType.PERSIST, CascadeType.MERGE})
     @OrderBy("createdAt ASC, id ASC")
     private List<DescriptionRevision> revisions = new ArrayList<>();
@@ -77,6 +80,7 @@ public class Description {
         DescriptionRevision draft = new DescriptionRevision(this, label, text, parentRevision);
         revisions.add(draft);
         currentRevision = draft;
+        currentRevisionOwnerId = id;
         touch();
     }
 

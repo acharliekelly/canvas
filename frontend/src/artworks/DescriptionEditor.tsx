@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 
 import { apiFetch } from "../api/client";
@@ -30,6 +30,10 @@ export function DescriptionEditor({ artworkId, artworkVersion: initialArtworkVer
   const approveButtons = useRef<Record<string, HTMLButtonElement | null>>({});
 
   const approval = descriptions.find((item) => item.descriptionId === approvalId) ?? null;
+  useEffect(() => {
+    if (error && approvalId === null) errorRef.current?.focus();
+  }, [approvalId, error]);
+
   const restoreApprovalFocus = useCallback(() => {
     const approvalButton = approvalId ? approveButtons.current[approvalId] : null;
     if (approvalButton) approvalButton.focus();
@@ -38,7 +42,6 @@ export function DescriptionEditor({ artworkId, artworkVersion: initialArtworkVer
 
   function reportError(message: string, fieldId?: string) {
     setError({ message, fieldId });
-    queueMicrotask(() => errorRef.current?.focus());
   }
 
   function add(event: FormEvent<HTMLFormElement>) {
@@ -54,11 +57,15 @@ export function DescriptionEditor({ artworkId, artworkVersion: initialArtworkVer
       .then((created) => {
         setDescriptions((current) => ordered([...current, created]));
         setEdits((current) => ({ ...current, [created.descriptionId]: revisionFields(created) }));
+        setArtworkVersion((current) => current + 1);
         setNewLabel("");
         setNewText("");
         setStatus(`${created.currentRevision.label} description added`);
       })
-      .catch((caught) => reportError(errorMessage(caught, "The description could not be added.")))
+      .catch((caught) => {
+        const details = descriptionError(caught, "The description could not be added.", "new-description");
+        reportError(details.message, details.fieldId);
+      })
       .finally(() => setBusyId(null));
   }
 
@@ -90,7 +97,11 @@ export function DescriptionEditor({ artworkId, artworkVersion: initialArtworkVer
     ).then((saved) => {
       replaceDescription(saved);
       setStatus(`${saved.currentRevision.label} draft saved`);
-    }).catch((caught) => reportError(errorMessage(caught, "The draft could not be saved.")))
+    }).catch((caught) => {
+      const details = descriptionError(caught, "The draft could not be saved.",
+        `description-${description.descriptionId}`);
+      reportError(details.message, details.fieldId);
+    })
       .finally(() => setBusyId(null));
   }
 
@@ -122,7 +133,10 @@ export function DescriptionEditor({ artworkId, artworkVersion: initialArtworkVer
       replaceDescription(approved);
       setApprovalId(null);
       setStatus(`${approved.currentRevision.label} description approved`);
-    }).catch((caught) => reportError(errorMessage(caught, "The description could not be approved.")))
+    }).catch((caught) => {
+      setApprovalId(null);
+      reportError(errorMessage(caught, "The description could not be approved."));
+    })
       .finally(() => setBusyId(null));
   }
 
@@ -166,6 +180,8 @@ export function DescriptionEditor({ artworkId, artworkVersion: initialArtworkVer
           const isApproved = current.state === "APPROVED";
           const hasApprovedHistory = current.state === "DRAFT" && description.approvedRevisionId !== null;
           const labelForNames = current.label;
+          const isDirty = draft.label !== current.label || draft.text !== current.text;
+          const approvalInstructionId = `description-${description.descriptionId}-approval-instruction`;
           return (
             <section key={description.descriptionId} aria-label={`${labelForNames} description`}
               className="description-card">
@@ -202,11 +218,13 @@ export function DescriptionEditor({ artworkId, artworkVersion: initialArtworkVer
                   onClick={() => move(index, 1)}>Move down</button>
                 <button type="button" disabled={busyId !== null}
                   aria-label={`Save ${labelForNames} draft`} onClick={() => save(description)}>Save draft</button>
-                {!isApproved && <button type="button" disabled={busyId !== null}
+                {!isApproved && <button type="button" disabled={busyId !== null || isDirty}
                   aria-label={`Approve ${labelForNames}`}
+                  aria-describedby={isDirty ? approvalInstructionId : undefined}
                   ref={(element) => { approveButtons.current[description.descriptionId] = element; }}
                   onClick={() => setApprovalId(description.descriptionId)}>Approve</button>}
               </div>
+              {!isApproved && isDirty && <p id={approvalInstructionId}>Save this draft before approving it.</p>}
               <RevisionHistory description={description} />
             </section>
           );
@@ -262,4 +280,13 @@ function approvalText(approvedBy: string | null, approvedAt: string | null) {
 
 function errorMessage(caught: unknown, fallback: string) {
   return caught instanceof Error ? caught.message : fallback;
+}
+
+function descriptionError(caught: unknown, fallback: string, fieldPrefix: string) {
+  const message = errorMessage(caught, fallback);
+  if (typeof caught !== "object" || caught === null || !("field" in caught)
+      || (caught.field !== "label" && caught.field !== "text")) {
+    return { message };
+  }
+  return { message, fieldId: `${fieldPrefix}-${caught.field}` };
 }

@@ -172,13 +172,15 @@ class DescriptionServiceTest {
         DescriptionResponse objective = service.createManual(artwork.id(), "Objective", "First.");
         DescriptionResponse subjective = service.createManual(artwork.id(), "Subjective", "Second.");
 
-        assertThatThrownBy(() -> service.reorder(artwork.id(), List.of(objective.descriptionId()), artwork.version()))
+        long currentArtworkVersion = artworkRepository.findById(artwork.id()).orElseThrow().getVersion();
+        assertThatThrownBy(() -> service.reorder(
+                artwork.id(), List.of(objective.descriptionId()), currentArtworkVersion))
                 .isInstanceOf(DescriptionProblem.class)
                 .extracting("code")
                 .isEqualTo("invalid_description_order");
 
         List<DescriptionResponse> reordered = service.reorder(artwork.id(),
-                List.of(subjective.descriptionId(), objective.descriptionId()), artwork.version());
+                List.of(subjective.descriptionId(), objective.descriptionId()), currentArtworkVersion);
         assertThat(reordered).extracting(DescriptionResponse::descriptionId)
                 .containsExactly(subjective.descriptionId(), objective.descriptionId());
         assertThatThrownBy(() -> service.reorder(artwork.id(),

@@ -41,12 +41,14 @@ public class DescriptionService {
     private DescriptionResponse createDraft(UUID artworkId, String label, String text, DescriptionSource source) {
         String normalizedLabel = requiredLabel(label);
         String normalizedText = requiredText(text);
-        Artwork artwork = requireArtwork(artworkId);
+        Artwork artwork = requireArtworkForUpdate(artworkId);
         Description description = new Description(
                 artwork, source, repository.maximumDisplayOrder(artworkId) + 1);
         repository.saveAndFlush(description);
         description.startDraft(normalizedLabel, normalizedText, null);
-        return DescriptionResponse.from(repository.saveAndFlush(description));
+        DescriptionResponse response = DescriptionResponse.from(repository.saveAndFlush(description));
+        advanceArtworkVersion(artwork);
+        return response;
     }
 
     @Transactional
@@ -79,14 +81,11 @@ public class DescriptionService {
 
     @Transactional
     public List<DescriptionResponse> reorder(UUID artworkId, List<UUID> requestedIds, Long expectedArtworkVersion) {
+        Artwork artwork = requireArtworkForUpdate(artworkId);
+        requireArtworkVersion(artwork, expectedArtworkVersion);
         List<Description> current = repository.findAllByArtworkIdOrderByDisplayOrderAsc(artworkId);
-        Artwork artwork = requireArtwork(artworkId);
         validateOrder(current, requestedIds);
-        if (expectedArtworkVersion == null || expectedArtworkVersion < 0
-                || artworkRepository.advanceVersion(artworkId, expectedArtworkVersion, Instant.now()) != 1) {
-            throw new DescriptionProblem("stale_version",
-                    "This artwork changed after it was loaded. Refresh and try again.");
-        }
+        advanceArtworkVersion(artwork);
 
         repository.moveOrdersOutOfTheWay(artworkId);
         for (int index = 0; index < requestedIds.size(); index++) {
@@ -111,6 +110,23 @@ public class DescriptionService {
     private Artwork requireArtwork(UUID artworkId) {
         return artworkRepository.findById(artworkId)
                 .orElseThrow(() -> new DescriptionProblem("artwork_not_found", "Artwork was not found."));
+    }
+
+    private Artwork requireArtworkForUpdate(UUID artworkId) {
+        return artworkRepository.findByIdForUpdate(artworkId)
+                .orElseThrow(() -> new DescriptionProblem("artwork_not_found", "Artwork was not found."));
+    }
+
+    private void requireArtworkVersion(Artwork artwork, Long expectedVersion) {
+        if (expectedVersion == null || expectedVersion < 0 || artwork.getVersion() != expectedVersion) {
+            throw new DescriptionProblem("stale_version",
+                    "This artwork changed after it was loaded. Refresh and try again.");
+        }
+    }
+
+    private void advanceArtworkVersion(Artwork artwork) {
+        artwork.markDescriptionCollectionChanged();
+        artworkRepository.saveAndFlush(artwork);
     }
 
     private Description requireOwnedDescription(UUID artworkId, UUID descriptionId) {

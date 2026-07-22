@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { axe } from "jest-axe";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -55,6 +55,24 @@ describe("DescriptionEditor", () => {
     });
   });
 
+  it("uses the artwork version advanced by creation for the next reorder", async () => {
+    const user = userEvent.setup();
+    const objective = description("objective", "Objective", "A blue square.", 0);
+    const subjective = description("subjective", "Subjective", "It feels expansive.", 1);
+    mockedApiFetch
+      .mockResolvedValueOnce(subjective)
+      .mockResolvedValueOnce([{ ...subjective, displayOrder: 0 }, { ...objective, displayOrder: 1 }]);
+    render(<DescriptionEditor artworkId="artwork-1" artworkVersion={4} initialDescriptions={[objective]} />);
+
+    await addDescription(user, "Subjective", "It feels expansive.");
+    await user.click(screen.getByRole("button", { name: "Move Objective down" }));
+
+    expect(mockedApiFetch).toHaveBeenNthCalledWith(2, "/api/artworks/artwork-1/description-order",
+      expect.objectContaining({ body: JSON.stringify({
+        descriptionIds: ["subjective", "objective"], version: 5,
+      }) }));
+  });
+
   it("saves draft changes without replacing the card", async () => {
     const user = userEvent.setup();
     const initial = description("objective", "Objective", "A blue square.", 0);
@@ -75,6 +93,25 @@ describe("DescriptionEditor", () => {
       "/api/artworks/artwork-1/descriptions/objective/draft",
       expect.objectContaining({ body: JSON.stringify({ label: "Objective", text: "A cobalt square.", version: 1 }) }),
     );
+  });
+
+  it.each([
+    ["label", "Objective label", "Interpretive"],
+    ["text", "Objective description text", "Unsaved replacement text."],
+  ])("requires the changed %s to be saved before approval", async (_field, accessibleName, replacement) => {
+    const user = userEvent.setup();
+    const objective = description("objective", "Objective", "A blue square.", 0);
+    render(<DescriptionEditor artworkId="artwork-1" artworkVersion={0} initialDescriptions={[objective]} />);
+
+    const field = screen.getByLabelText(accessibleName);
+    await user.clear(field);
+    await user.type(field, replacement);
+
+    const approve = screen.getByRole("button", { name: "Approve Objective" });
+    expect(approve).toBeDisabled();
+    expect(approve).toHaveAccessibleDescription("Save this draft before approving it.");
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(mockedApiFetch).not.toHaveBeenCalled();
   });
 
   it("moves cards by buttons, disables boundaries, and preserves field values", async () => {
@@ -110,6 +147,7 @@ describe("DescriptionEditor", () => {
 
     const dialog = screen.getByRole("dialog", { name: "Approve Objective description" });
     expect(dialog).toHaveTextContent("Later edits create a new draft");
+    expect(within(dialog).getByRole("button", { name: "Approve description" })).toHaveFocus();
     expect(mockedApiFetch).not.toHaveBeenCalled();
     await user.click(within(dialog).getByRole("button", { name: "Approve description" }));
 
@@ -118,6 +156,76 @@ describe("DescriptionEditor", () => {
       "/api/artworks/artwork-1/descriptions/objective/approve",
       expect.objectContaining({ method: "POST", body: JSON.stringify({ version: 1 }) }),
     );
+  });
+
+  it("cancels approval with Escape and restores focus to the invoking button", async () => {
+    const user = userEvent.setup();
+    const objective = description("objective", "Objective", "A blue square.", 0);
+    render(<DescriptionEditor artworkId="artwork-1" artworkVersion={0} initialDescriptions={[objective]} />);
+
+    const approve = screen.getByRole("button", { name: "Approve Objective" });
+    await user.click(approve);
+    expect(screen.getByRole("dialog", { name: "Approve Objective description" })).toBeVisible();
+
+    fireEvent(screen.getByRole("dialog"), new Event("cancel", { cancelable: true }));
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(approve).toHaveFocus();
+    expect(mockedApiFetch).not.toHaveBeenCalled();
+  });
+
+  it("closes the modal and focuses the page error summary when approval fails", async () => {
+    const user = userEvent.setup();
+    const objective = description("objective", "Objective", "A blue square.", 0);
+    mockedApiFetch.mockRejectedValueOnce(apiError(
+      "This description changed after it was loaded. Refresh and try again.", "stale_version"));
+    render(<DescriptionEditor artworkId="artwork-1" artworkVersion={0} initialDescriptions={[objective]} />);
+
+    await user.click(screen.getByRole("button", { name: "Approve Objective" }));
+    await user.click(screen.getByRole("button", { name: "Approve description" }));
+
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Approve Objective description" }))
+      .not.toBeInTheDocument());
+    const summary = screen.getByRole("alert");
+    expect(summary).toHaveTextContent("This description changed after it was loaded");
+    expect(summary).toHaveFocus();
+  });
+
+  it.each([
+    ["label", "Objective label"],
+    ["text", "Objective description text"],
+  ])("links server %s metadata to the affected saved-description field", async (field, accessibleName) => {
+    const user = userEvent.setup();
+    const objective = description("objective", "Objective", "A blue square.", 0);
+    mockedApiFetch.mockRejectedValueOnce(apiError(
+      `Description ${field} is invalid.`, "invalid_description", field));
+    render(<DescriptionEditor artworkId="artwork-1" artworkVersion={0} initialDescriptions={[objective]} />);
+
+    await user.click(screen.getByRole("button", { name: "Save Objective draft" }));
+
+    const summary = await screen.findByRole("alert");
+    expect(within(summary).getByRole("link", { name: `Description ${field} is invalid.` }))
+      .toHaveAttribute("href", `#description-objective-${field}`);
+    expect(screen.getByLabelText(accessibleName)).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByLabelText(accessibleName))
+      .toHaveAttribute("aria-describedby", "description-error-summary");
+  });
+
+  it.each([
+    ["label", "New description label"],
+    ["text", "New description text"],
+  ])("links server %s metadata to the affected new-description field", async (field, accessibleName) => {
+    const user = userEvent.setup();
+    mockedApiFetch.mockRejectedValueOnce(apiError(
+      `Description ${field} is invalid.`, "invalid_description", field));
+    render(<DescriptionEditor artworkId="artwork-1" artworkVersion={0} initialDescriptions={[]} />);
+
+    await addDescription(user, "Objective", "A blue square.");
+
+    const summary = await screen.findByRole("alert");
+    expect(within(summary).getByRole("link", { name: `Description ${field} is invalid.` }))
+      .toHaveAttribute("href", `#new-description-${field}`);
+    expect(screen.getByLabelText(accessibleName)).toHaveAttribute("aria-invalid", "true");
   });
 
   it("explains that editing approved content creates a new draft and retains history", async () => {
@@ -190,4 +298,8 @@ function revision(id: string, label: string, text: string, state: "DRAFT" | "APP
     createdAt: "2026-07-21T12:00:00Z",
     updatedAt: "2026-07-21T12:00:00Z",
   };
+}
+
+function apiError(message: string, code: string, field?: string) {
+  return Object.assign(new Error(message), { status: 400, code, field });
 }
