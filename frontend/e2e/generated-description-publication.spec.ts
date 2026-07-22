@@ -26,8 +26,37 @@ test("generated draft remains blocked until edited, approved, and explicitly pub
   await page.getByRole("button", { name: "Publish artwork" }).click();
   await page.getByRole("button", { name: "Confirm publication" }).click();
   await expect(page.getByText("Artwork published", { exact: true })).toBeVisible();
-  await page.getByRole("link", { name: "Open published artwork" }).click();
+  const publicLink = page.getByRole("link", { name: "Open published artwork" });
+  const publicHref = await publicLink.getAttribute("href");
+  expect(publicHref).toMatch(/^\/artworks\/e2e-generated-description-study-/);
+  const slug = publicHref?.replace("/artworks/", "") as string;
+  const qrHref = `/public/artworks/${slug}/qr`;
+  const qrLink = page.getByRole("link", { name: `Download QR code for ${TITLE}` });
+  await expect(qrLink).toHaveAttribute("href", qrHref);
+
+  const qrDownload = page.waitForEvent("download");
+  await qrLink.click();
+  const download = await qrDownload;
+  expect(download.suggestedFilename()).toBe(`${slug}-qr.png`);
+  const downloadPath = await download.path();
+  expect(downloadPath).not.toBeNull();
+  const qrBytes = await import("node:fs/promises").then((fs) => fs.readFile(downloadPath as string));
+  expect([...qrBytes.subarray(0, 8)]).toEqual([137, 80, 78, 71, 13, 10, 26, 10]);
+
+  await publicLink.click();
   await expect(page.getByRole("heading", { name: TITLE })).toBeVisible();
   await expect(page.getByText(EDITED_TEXT)).toBeVisible();
   await expect(page.getByText(/deterministic placeholder description for/i)).toHaveCount(0);
+  const audio = page.getByLabel(`Listen to Placeholder draft description for ${TITLE}`);
+  await expect(audio).toBeVisible();
+  await expect(audio).toHaveAttribute("controls", "");
+  const audioUrl = await audio.getAttribute("src");
+  expect(audioUrl).toMatch(new RegExp(`^/public/artworks/${slug}/descriptions/[0-9a-f-]+/audio$`));
+  const audioResponse = await page.request.get(audioUrl as string);
+  expect(audioResponse.ok()).toBe(true);
+  expect(audioResponse.headers()["content-type"]).toContain("audio/wav");
+  const audioBytes = await audioResponse.body();
+  expect(audioBytes.length).toBeGreaterThan(44);
+  expect(audioBytes.subarray(0, 4).toString("ascii")).toBe("RIFF");
+  expect(audioBytes.subarray(8, 12).toString("ascii")).toBe("WAVE");
 });

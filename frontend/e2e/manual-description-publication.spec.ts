@@ -5,8 +5,9 @@ import { addDescription, approveDescription, signIn, uploadArtwork } from "./hel
 const TITLE = "E2E Manual Description Study";
 const OBJECTIVE = "A blue square sits above two narrow gold lines.";
 const SUBJECTIVE = "The repeated geometry creates a measured visual rhythm.";
+const UNPUBLISHED_DRAFT_CANARY = "UNPUBLISHED-DRAFT-CANARY-7b35143f must remain private.";
 
-test("administrator publishes ordered manual descriptions with cached audio and QR", async ({ page }) => {
+test("administrator publishes ordered manual descriptions with cached audio and QR", async ({ page, browser }) => {
   await signIn(page);
   await uploadArtwork(page, TITLE);
 
@@ -35,7 +36,14 @@ test("administrator publishes ordered manual descriptions with cached audio and 
   const qrBytes = await import("node:fs/promises").then((fs) => fs.readFile(downloadPath as string));
   expect([...qrBytes.subarray(0, 8)]).toEqual([137, 80, 78, 71, 13, 10, 26, 10]);
 
-  const publicPage = await page.context().newPage();
+  await addDescription(page, "Private review", UNPUBLISHED_DRAFT_CANARY);
+  await expect(page.getByRole("region", { name: "Private review description" })).toContainText("Status: Draft");
+
+  const anonymousContext = await browser.newContext();
+  const publicPage = await anonymousContext.newPage();
+  const anonymousSession = await publicPage.request.get("/api/session");
+  expect(anonymousSession.ok()).toBe(true);
+  expect(await anonymousSession.json()).toMatchObject({ authenticated: false, username: null });
   await publicPage.goto(publicHref as string);
   await expect(publicPage.getByRole("heading", { name: TITLE })).toBeVisible();
   const descriptions = publicPage.locator(".published-descriptions > section");
@@ -44,10 +52,16 @@ test("administrator publishes ordered manual descriptions with cached audio and 
   await expect(descriptions.nth(0)).toContainText(OBJECTIVE);
   await expect(descriptions.nth(1).getByRole("heading")).toHaveText("Subjective");
   await expect(descriptions.nth(1)).toContainText(SUBJECTIVE);
+  await expect(publicPage.getByText(UNPUBLISHED_DRAFT_CANARY, { exact: true })).toHaveCount(0);
   await expect(publicPage.getByLabel(`Listen to Objective description for ${TITLE}`)).toHaveAttribute("src", /audio$/);
 
   const publicResponse = await publicPage.request.get(`/public${publicHref?.replace("/artworks", "/artworks")}`);
   const publicJson = await publicResponse.json();
+  expect(publicJson.descriptions.map((description: { text: string }) => description.text)).toEqual([
+    OBJECTIVE,
+    SUBJECTIVE,
+  ]);
+  expect(JSON.stringify(publicJson)).not.toContain(UNPUBLISHED_DRAFT_CANARY);
   expect(JSON.stringify(publicJson)).not.toMatch(/draft|approvedBy|objectKey|administrator|stack/i);
 
   const audioUrl = await publicPage.getByLabel(`Listen to Objective description for ${TITLE}`).getAttribute("src");
@@ -59,8 +73,9 @@ test("administrator publishes ordered manual descriptions with cached audio and 
   await page.getByRole("button", { name: "Publish artwork" }).click();
   await page.getByRole("button", { name: "Confirm publication" }).click();
   await expect(page.getByText("Published artwork is already up to date", { exact: true })).toBeVisible();
-  const secondAudio = await page.request.get(audioUrl as string);
-  const secondQr = await page.request.get(`${publicHref?.replace("/artworks/", "/public/artworks/")}/qr`);
+  const secondAudio = await publicPage.request.get(audioUrl as string);
+  const secondQr = await publicPage.request.get(`${publicHref?.replace("/artworks/", "/public/artworks/")}/qr`);
   expect(secondAudio.headers().etag).toBe(firstAudio.headers().etag);
   expect(secondQr.headers().etag).toBe(firstQr.headers().etag);
+  await anonymousContext.close();
 });
