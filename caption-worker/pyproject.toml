@@ -1,0 +1,23 @@
+[build-system]
+requires = ["hatchling==1.27.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "canvas-caption-worker"
+version = "0.0.1"
+description = "CANVAS caption worker"
+requires-python = ">=3.13,<3.14"
+dependencies = [
+  "fastapi==0.115.12",
+  "uvicorn[standard]==0.34.2"
+]
+
+[project.optional-dependencies]
+test = [
+  "httpx==0.28.1",
+  "pytest==8.3.5"
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]

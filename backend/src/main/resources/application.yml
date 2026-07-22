@@ -1,0 +1,38 @@
+spring:
+  application:
+    name: canvas-backend
+  datasource:
+    url: ${CANVAS_DATABASE_URL:jdbc:postgresql://localhost:5432/canvas}
+    username: ${POSTGRES_USER:canvas}
+    password: ${POSTGRES_PASSWORD:canvas-local-password}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+
+server:
+  tomcat:
+    max-swallow-size: ${CANVAS_MAX_SWALLOW_SIZE:16MB}
+
+canvas:
+  admin:
+    username: ${CANVAS_ADMIN_USERNAME:admin}
+    password-hash: ${CANVAS_ADMIN_PASSWORD_HASH}
+  public-base-url: ${CANVAS_PUBLIC_BASE_URL:http://localhost:5173}
+  upload-max-size: ${CANVAS_UPLOAD_MAX_SIZE:10MB}
+  caption-worker-url: ${CANVAS_CAPTION_WORKER_URL:http://localhost:8000}
+  storage:
+    endpoint: ${CANVAS_S3_ENDPOINT:http://localhost:9000}
+    access-key: ${CANVAS_S3_ACCESS_KEY:canvas-backend}
+    secret-key: ${CANVAS_S3_SECRET_KEY:canvas-backend-local-secret}
+    region: ${CANVAS_S3_REGION:us-east-1}
+    originals-bucket: ${CANVAS_ORIGINALS_BUCKET}
+    generated-bucket: ${CANVAS_GENERATED_BUCKET}

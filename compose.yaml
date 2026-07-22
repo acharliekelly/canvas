@@ -1,0 +1,110 @@
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-canvas}
+      POSTGRES_USER: ${POSTGRES_USER:-canvas}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-canvas-local-password}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - canvas-postgres-data:/var/lib/postgresql/data
+
+  minio:
+    image: minio/minio:RELEASE.2025-09-07T16-13-09Z@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-canvas-minio}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-canvas-minio-local-password}
+    ports:
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - canvas-minio-data:/data
+
+  minio-init:
+    image: minio/mc:RELEASE.2025-08-13T08-35-41Z@sha256:a7fe349ef4bd8521fb8497f55c6042871b2ae640607cf99d9bede5e9bdf11727
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-canvas-minio}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-canvas-minio-local-password}
+      CANVAS_ORIGINALS_BUCKET: ${CANVAS_ORIGINALS_BUCKET:-canvas-originals}
+      CANVAS_GENERATED_BUCKET: ${CANVAS_GENERATED_BUCKET:-canvas-generated}
+      CANVAS_S3_ACCESS_KEY: ${CANVAS_S3_ACCESS_KEY:-canvas-backend}
+      CANVAS_S3_SECRET_KEY: ${CANVAS_S3_SECRET_KEY:-canvas-backend-local-secret}
+    volumes:
+      - ./infrastructure/minio/create-bucket.sh:/create-bucket.sh:ro
+    entrypoint: ["/bin/sh", "/create-bucket.sh"]
+
+  caption-worker:
+    build:
+      context: ./caption-worker
+    ports:
+      - "127.0.0.1:8000:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import json, urllib.request; assert json.load(urllib.request.urlopen('http://localhost:8000/health')) == {'status': 'ready'}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  backend:
+    build:
+      context: ./backend
+    environment:
+      CANVAS_DATABASE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-canvas}
+      POSTGRES_USER: ${POSTGRES_USER:-canvas}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-canvas-local-password}
+      CANVAS_ADMIN_USERNAME: ${CANVAS_ADMIN_USERNAME:-admin}
+      CANVAS_ADMIN_PASSWORD_HASH: ${CANVAS_ADMIN_PASSWORD_HASH:-$$2a$$10$$1oiTviKoCVqHe56NZnyhbOutjj8OENLmmDKZIiS8NWN3g5NuOgnL2}
+      CANVAS_PUBLIC_BASE_URL: ${CANVAS_PUBLIC_BASE_URL:-http://localhost:5173}
+      CANVAS_UPLOAD_MAX_SIZE: ${CANVAS_UPLOAD_MAX_SIZE:-10MB}
+      CANVAS_MAX_SWALLOW_SIZE: ${CANVAS_MAX_SWALLOW_SIZE:-16MB}
+      CANVAS_CAPTION_WORKER_URL: ${CANVAS_CAPTION_WORKER_URL:-http://caption-worker:8000}
+      CANVAS_S3_ENDPOINT: http://minio:9000
+      CANVAS_S3_ACCESS_KEY: ${CANVAS_S3_ACCESS_KEY:-canvas-backend}
+      CANVAS_S3_SECRET_KEY: ${CANVAS_S3_SECRET_KEY:-canvas-backend-local-secret}
+      CANVAS_S3_REGION: ${CANVAS_S3_REGION:-us-east-1}
+      CANVAS_ORIGINALS_BUCKET: ${CANVAS_ORIGINALS_BUCKET:-canvas-originals}
+      CANVAS_GENERATED_BUCKET: ${CANVAS_GENERATED_BUCKET:-canvas-generated}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+      caption-worker:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:8080:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/api/health | grep -qx '{\"status\":\"ready\"}'"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  frontend:
+    build:
+      context: ./frontend
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:5173:5173"
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://localhost:5173').then(response => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))\""]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  canvas-postgres-data:
+  canvas-minio-data:

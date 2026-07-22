@@ -346,7 +346,7 @@ git commit -m "feat: add revisioned artwork descriptions"
 - Create: `caption-worker/src/canvas_caption_worker/contracts.py`, `caption-worker/tests/test_caption.py`
 - Create: `backend/src/main/java/org/canvas/caption/CaptionClient.java`, `HttpCaptionClient.java`, `CaptionJob.java`, `CaptionJobRepository.java`, `CaptionJobService.java`, `CaptionJobRunner.java`
 - Create: `backend/src/main/java/org/canvas/caption/api/CaptionJobController.java`, `CaptionJobResponse.java`
-- Create: `backend/src/main/resources/db/migration/V3__caption_jobs.sql`
+- Create: `backend/src/main/resources/db/migration/V4__caption_jobs.sql`, `V5__retain_caption_job_results.sql`
 - Create: `backend/src/test/java/org/canvas/caption/CaptionJobServiceTest.java`, `CaptionJobIntegrationTest.java`
 - Create: `frontend/src/artworks/CaptionRequestPanel.tsx`, `CaptionRequestPanel.test.tsx`
 
@@ -387,7 +387,7 @@ Expected: FAIL because the caption endpoint and job orchestration are absent.
 
 - [ ] **Step 4: Implement the worker and durable job runner**
 
-The placeholder response uses artwork metadata in a plainly identified demo sentence and never claims to inspect image content. `V3__caption_jobs.sql` stores job state, attempt count, safe error message, resulting description ID, timestamps, and optimistic version.
+The placeholder response uses artwork metadata in a plainly identified demo sentence and never claims to inspect image content. `V4__caption_jobs.sql` stores job state, attempt count, safe error message, resulting description ID, timestamps, and optimistic version. Forward migration `V5__retain_caption_job_results.sql` replaces V4's contradictory result-description `ON DELETE SET NULL` behavior with `ON DELETE RESTRICT` so successful-job audit references remain valid; do not rewrite V4 because it may already be applied.
 
 Use a bounded Spring task executor. The transaction that creates the job commits before execution begins. The runner claims a pending job, calls `CaptionClient`, then invokes `DescriptionService.createGeneratedDraft`. On failure it records `FAILED`; retry returns the active job or creates a new attempt from a failed terminal job. Add structured logs with job and artwork IDs.
 
@@ -417,7 +417,7 @@ git commit -m "feat: add placeholder caption workflow"
 **Files:**
 - Create: `backend/src/main/java/org/canvas/publication/Publication.java`, `PublishedDescription.java`, `PublicationRepository.java`, `PublicationService.java`
 - Create: `backend/src/main/java/org/canvas/publication/api/PublicationController.java`, `PublicArtworkController.java`, `PublicArtworkResponse.java`
-- Create: `backend/src/main/resources/db/migration/V4__publications.sql`
+- Create: `backend/src/main/resources/db/migration/V6__publications.sql`
 - Create: `backend/src/test/java/org/canvas/publication/PublicationServiceTest.java`, `PublicArtworkApiTest.java`
 - Create: `frontend/src/artworks/PublishPanel.tsx`, `PublishPanel.test.tsx`
 - Create: `frontend/src/publication/PublicArtworkPage.tsx`, `PublicArtworkPage.test.tsx`
@@ -448,7 +448,7 @@ Expected: FAIL because publication persistence and APIs do not exist.
 
 - [ ] **Step 3: Implement snapshot publication**
 
-`V4__publications.sql` creates versioned publication rows plus copied published-description rows referencing their approved revision IDs. Generate a stable collision-resistant lowercase slug once per artwork. In one transaction, lock the artwork, select current approved revisions in display order, enforce the invariant, create the snapshot, and mark it current. A content hash makes identical repeated requests idempotent.
+`V6__publications.sql` creates versioned publication rows plus copied published-description rows referencing their approved revision IDs. Generate a stable collision-resistant lowercase slug once per artwork. In one transaction, lock the artwork, select current approved revisions in display order, enforce the invariant, create the snapshot, and mark it current. A content hash makes identical repeated requests idempotent.
 
 Serve the artwork image through a backend public endpoint that resolves the stored object internally; never reveal MinIO credentials or keys.
 
@@ -479,7 +479,7 @@ git commit -m "feat: publish approved artwork descriptions"
 - Create: `backend/src/main/java/org/canvas/publication/asset/GeneratedAsset.java`, `GeneratedAssetRepository.java`, `AssetKind.java`
 - Create: `backend/src/main/java/org/canvas/publication/asset/AudioGenerator.java`, `PlaceholderAudioGenerator.java`, `QrCodeGenerator.java`, `ZxingQrCodeGenerator.java`, `AssetService.java`
 - Create: `backend/src/main/java/org/canvas/publication/api/PublicAssetController.java`
-- Create: `backend/src/main/resources/db/migration/V5__generated_assets.sql`
+- Create: `backend/src/main/resources/db/migration/V7__generated_assets.sql`
 - Create: `backend/src/main/resources/audio/placeholder.wav`
 - Create: `backend/src/test/java/org/canvas/publication/asset/AssetServiceTest.java`, `PublicAssetApiTest.java`
 - Modify: `backend/src/main/java/org/canvas/publication/PublicationService.java`
@@ -514,7 +514,7 @@ Expected: FAIL because generated-asset persistence and ports do not exist.
 
 - [ ] **Step 3: Implement content-addressed asset generation**
 
-`V5__generated_assets.sql` stores kind, SHA-256 input key, media type, byte size, object key, source revision or publication, and audit timestamps with a uniqueness constraint on `(kind, input_key)`.
+`V7__generated_assets.sql` stores kind, SHA-256 input key, media type, byte size, object key, source revision or publication, and audit timestamps with a uniqueness constraint on `(kind, input_key)`.
 
 `PlaceholderAudioGenerator` returns the checked-in short silent WAV and identifies it as placeholder output; the visible transcript always remains the approved description text. `ZxingQrCodeGenerator` encodes `${CANVAS_PUBLIC_BASE_URL}/artworks/{slug}` as a high-contrast PNG with a quiet zone. `AssetService` checks the content key before generation, stores through `ObjectStorage`, and compensates on transaction failure.
 
