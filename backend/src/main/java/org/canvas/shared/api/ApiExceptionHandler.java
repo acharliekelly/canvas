@@ -3,6 +3,7 @@ package org.canvas.shared.api;
 import org.canvas.artwork.ArtworkService.ArtworkProblem;
 import org.canvas.caption.CaptionJobService.CaptionProblem;
 import org.canvas.description.DescriptionService.DescriptionProblem;
+import org.canvas.publication.PublicationService.PublicationProblem;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.dao.OptimisticLockingFailureException;
@@ -14,6 +15,20 @@ import org.springframework.web.multipart.support.MissingServletRequestPartExcept
 
 @RestControllerAdvice
 public class ApiExceptionHandler {
+    @ExceptionHandler(PublicationProblem.class)
+    ProblemDetail publicationProblem(PublicationProblem error) {
+        HttpStatus status = switch (error.getCode()) {
+            case "artwork_not_found", "public_artwork_not_found" -> HttpStatus.NOT_FOUND;
+            case "stale_version" -> HttpStatus.CONFLICT;
+            case "public_image_unavailable" -> HttpStatus.SERVICE_UNAVAILABLE;
+            default -> HttpStatus.BAD_REQUEST;
+        };
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(status, error.getMessage());
+        problem.setTitle(status.getReasonPhrase());
+        problem.setProperty("code", error.getCode());
+        return problem;
+    }
+
     @ExceptionHandler(CaptionProblem.class)
     ProblemDetail captionProblem(CaptionProblem error) {
         HttpStatus status = switch (error.getCode()) {

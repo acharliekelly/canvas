@@ -8,7 +8,7 @@ export interface ArtworkSummary {
   id: string;
   title: string;
   credit: string;
-  status: "UPLOADED";
+  status: "UPLOADED" | "PUBLISHED";
   createdAt: string;
 }
 
@@ -62,6 +62,27 @@ export interface CaptionJobResponse {
   startedAt: string | null;
   completedAt: string | null;
   updatedAt: string;
+}
+
+export interface PublicationResult {
+  publicationId: string;
+  slug: string;
+  publishedAt: string;
+  artworkVersion: number;
+  created: boolean;
+  descriptions: PublishedDescription[];
+}
+
+export interface PublishedDescription {
+  label: string;
+  text: string;
+}
+
+export interface PublicArtworkResponse {
+  title: string;
+  credit: string;
+  imageUrl: string;
+  descriptions: PublishedDescription[];
 }
 
 export interface ApiProblem {

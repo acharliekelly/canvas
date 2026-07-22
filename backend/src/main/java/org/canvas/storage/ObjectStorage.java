@@ -7,6 +7,10 @@ public interface ObjectStorage {
 
     void delete(String objectKey);
 
+    default InputStream get(String objectKey) {
+        throw new UnsupportedOperationException("Reading stored objects is not supported.");
+    }
+
     record StoredObject(String objectKey) {
     }
 }

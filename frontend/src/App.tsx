@@ -1,10 +1,17 @@
 import { useEffect, useState } from "react";
 
 import { SessionProvider } from "./auth/SessionProvider";
+import { PublicArtworkPage } from "./publication/PublicArtworkPage";
 
 type Readiness = "checking" | "ready" | "unavailable";
 
 export default function App() {
+  const publicArtworkMatch = window.location.pathname.match(/^\/artworks\/([^/]+)\/?$/);
+  if (publicArtworkMatch) return <PublicArtworkPage slug={decodeURIComponent(publicArtworkMatch[1])} />;
+  return <AdminApp />;
+}
+
+function AdminApp() {
   const [readiness, setReadiness] = useState<Readiness>("checking");
 
   useEffect(() => {

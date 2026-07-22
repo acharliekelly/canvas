@@ -27,7 +27,7 @@ public class SecurityConfiguration {
     SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         return http
                 .authorizeHttpRequests(authorize -> authorize
-                        .requestMatchers("/api/health", "/api/session", "/api/login").permitAll()
+                        .requestMatchers("/api/health", "/api/session", "/api/login", "/public/**").permitAll()
                         .anyRequest().authenticated())
                 .formLogin(login -> login
                         .loginProcessingUrl("/api/login")

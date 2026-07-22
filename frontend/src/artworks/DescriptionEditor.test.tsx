@@ -277,7 +277,7 @@ describe("DescriptionEditor", () => {
 
     expect(await screen.findByText("New draft based on an approved revision. Earlier approved text remains in history."))
       .toBeVisible();
-    expect(screen.getByText("A blue square.")).toBeVisible();
+    expect(screen.getAllByText("A blue square.")).toHaveLength(2);
   });
 });
 

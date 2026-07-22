@@ -17,7 +17,7 @@ import java.util.UUID;
 @Entity
 @Table(name = "artworks")
 public class Artwork {
-    public enum LifecycleStatus { UPLOADED }
+    public enum LifecycleStatus { UPLOADED, PUBLISHED }
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -72,6 +72,23 @@ public class Artwork {
         updatedAt = Instant.now();
     }
 
+    public void markPublished(String slug) {
+        boolean changed = false;
+        if (publicSlug == null) {
+            publicSlug = slug;
+            changed = true;
+        } else if (!publicSlug.equals(slug)) {
+            throw new IllegalStateException("An artwork's public slug cannot change.");
+        }
+        if (lifecycleStatus != LifecycleStatus.PUBLISHED) {
+            lifecycleStatus = LifecycleStatus.PUBLISHED;
+            changed = true;
+        }
+        if (changed) {
+            updatedAt = Instant.now();
+        }
+    }
+
     public UUID getId() { return id; }
     public String getTitle() { return title; }
     public String getCredit() { return credit; }
@@ -80,6 +97,7 @@ public class Artwork {
     public long getByteSize() { return byteSize; }
     public String getImageObjectKey() { return imageObjectKey; }
     public LifecycleStatus getLifecycleStatus() { return lifecycleStatus; }
+    public String getPublicSlug() { return publicSlug; }
     public long getVersion() { return version; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }

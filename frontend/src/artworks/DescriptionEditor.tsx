@@ -5,6 +5,7 @@ import { apiFetch } from "../api/client";
 import type { DescriptionResponse } from "../api/types";
 import { ApproveDescriptionDialog } from "./ApproveDescriptionDialog";
 import { CaptionRequestPanel } from "./CaptionRequestPanel";
+import { PublishPanel } from "./PublishPanel";
 
 interface DraftFields {
   label: string;
@@ -164,6 +165,8 @@ export function DescriptionEditor({ artworkId, artworkVersion: initialArtworkVer
     <section aria-labelledby="descriptions-heading" className="description-editor">
       <h2 id="descriptions-heading">Descriptions</h2>
       <p>Add one or more descriptions using your organization&apos;s preferred labels.</p>
+      <PublishPanel artworkId={artworkId} artworkVersion={artworkVersion} descriptions={descriptions}
+        onPublished={setArtworkVersion} />
       <CaptionRequestPanel artworkId={artworkId} onGenerated={addGeneratedDescription} />
       {error && <div id="description-error-summary" className="error-summary" role="alert" tabIndex={-1} ref={errorRef}>
         <h3>There is a problem</h3>

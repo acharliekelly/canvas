@@ -5,6 +5,7 @@ import java.util.UUID;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
 public class S3ObjectStorage implements ObjectStorage {
@@ -32,5 +33,10 @@ public class S3ObjectStorage implements ObjectStorage {
     @Override
     public void delete(String objectKey) {
         client.deleteObject(DeleteObjectRequest.builder().bucket(bucket).key(objectKey).build());
+    }
+
+    @Override
+    public InputStream get(String objectKey) {
+        return client.getObject(GetObjectRequest.builder().bucket(bucket).key(objectKey).build());
     }
 }
