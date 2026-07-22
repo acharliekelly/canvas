@@ -1,6 +1,7 @@
 package org.canvas.shared.api;
 
 import org.canvas.artwork.ArtworkService.ArtworkProblem;
+import org.canvas.caption.CaptionJobService.CaptionProblem;
 import org.canvas.description.DescriptionService.DescriptionProblem;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
@@ -13,6 +14,18 @@ import org.springframework.web.multipart.support.MissingServletRequestPartExcept
 
 @RestControllerAdvice
 public class ApiExceptionHandler {
+    @ExceptionHandler(CaptionProblem.class)
+    ProblemDetail captionProblem(CaptionProblem error) {
+        HttpStatus status = switch (error.getCode()) {
+            case "artwork_not_found", "caption_job_not_found" -> HttpStatus.NOT_FOUND;
+            default -> HttpStatus.BAD_REQUEST;
+        };
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(status, error.getMessage());
+        problem.setTitle(status.getReasonPhrase());
+        problem.setProperty("code", error.getCode());
+        return problem;
+    }
+
     @ExceptionHandler(MaxUploadSizeExceededException.class)
     ProblemDetail uploadTooLarge(MaxUploadSizeExceededException error) {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST,

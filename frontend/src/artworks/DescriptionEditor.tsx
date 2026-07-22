@@ -4,6 +4,7 @@ import type { FormEvent } from "react";
 import { apiFetch } from "../api/client";
 import type { DescriptionResponse } from "../api/types";
 import { ApproveDescriptionDialog } from "./ApproveDescriptionDialog";
+import { CaptionRequestPanel } from "./CaptionRequestPanel";
 
 interface DraftFields {
   label: string;
@@ -146,10 +147,20 @@ export function DescriptionEditor({ artworkId, artworkVersion: initialArtworkVer
     setEdits((current) => ({ ...current, [updated.descriptionId]: revisionFields(updated) }));
   }
 
+  function addGeneratedDescription(generated: DescriptionResponse) {
+    setDescriptions((current) => ordered([
+      ...current.filter((item) => item.descriptionId !== generated.descriptionId),
+      generated,
+    ]));
+    setEdits((current) => ({ ...current, [generated.descriptionId]: revisionFields(generated) }));
+    setArtworkVersion((current) => current + 1);
+  }
+
   return (
     <section aria-labelledby="descriptions-heading" className="description-editor">
       <h2 id="descriptions-heading">Descriptions</h2>
       <p>Add one or more descriptions using your organization&apos;s preferred labels.</p>
+      <CaptionRequestPanel artworkId={artworkId} onGenerated={addGeneratedDescription} />
       {error && <div id="description-error-summary" className="error-summary" role="alert" tabIndex={-1} ref={errorRef}>
         <h3>There is a problem</h3>
         {error.fieldId ? <a href={`#${error.fieldId}`}>{error.message}</a> : <p>{error.message}</p>}
@@ -186,7 +197,7 @@ export function DescriptionEditor({ artworkId, artworkVersion: initialArtworkVer
             <section key={description.descriptionId} aria-label={`${labelForNames} description`}
               className="description-card">
               <div className="description-card-heading">
-                <h3>{labelForNames}</h3>
+                <h3 id={`description-${description.descriptionId}-heading`} tabIndex={-1}>{labelForNames}</h3>
                 <p><span className="status-label">Status:</span> {isApproved ? "Approved" : "Draft"}</p>
                 <p><span className="status-label">Source:</span> {sentenceCase(description.source)}</p>
               </div>

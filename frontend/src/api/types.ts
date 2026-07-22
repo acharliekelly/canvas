@@ -48,6 +48,22 @@ export interface DescriptionResponse {
   updatedAt: string;
 }
 
+export type CaptionJobState = "PENDING" | "RUNNING" | "SUCCEEDED" | "FAILED";
+
+export interface CaptionJobResponse {
+  jobId: string;
+  artworkId: string;
+  state: CaptionJobState;
+  attemptCount: number;
+  errorMessage: string | null;
+  resultingDescriptionId: string | null;
+  version: number;
+  createdAt: string;
+  startedAt: string | null;
+  completedAt: string | null;
+  updatedAt: string;
+}
+
 export interface ApiProblem {
   status: number;
   title: string;
