@@ -42,6 +42,20 @@ describe("PublishPanel", () => {
     expect(list).not.toHaveTextContent("Private draft");
   });
 
+  it("renders approved descriptions with identical content without duplicate React keys", () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    render(<PublishPanel artworkId="artwork-1" artworkVersion={3}
+      descriptions={[
+        approvedDescription("first", "Objective", "A blue square.", 0),
+        approvedDescription("second", "Objective", "A blue square.", 1),
+      ]} onPublished={vi.fn()} />);
+
+    expect(screen.getAllByRole("listitem")).toHaveLength(2);
+    expect(consoleError.mock.calls.flat().join(" ")).not.toContain("same key");
+    consoleError.mockRestore();
+  });
+
   it("requires confirmation before publishing and exposes the success link", async () => {
     const user = userEvent.setup();
     const onPublished = vi.fn();

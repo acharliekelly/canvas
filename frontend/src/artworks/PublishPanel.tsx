@@ -70,7 +70,7 @@ export function PublishPanel({ artworkId, artworkTitle = "this artwork", artwork
 
 function PublicationDialog({ publishing, descriptions, onConfirm, onCancel, onReturnFocus }: {
   publishing: boolean;
-  descriptions: PublishedDescription[];
+  descriptions: ListDescription[];
   onConfirm: () => void;
   onCancel: () => void;
   onReturnFocus: () => void;
@@ -103,17 +103,22 @@ function PublicationDialog({ publishing, descriptions, onConfirm, onCancel, onRe
 }
 
 function ApprovedRevisionList({ descriptions, label }: {
-  descriptions: PublishedDescription[];
+  descriptions: ListDescription[];
   label: string;
 }) {
   return <ul aria-label={label} className="publication-description-list">
-    {descriptions.map((description) => <li key={`${description.label}\u0000${description.text}`}>
+    {descriptions.map((description, index) => <li
+      key={description.revisionId ?? `${description.label}\u0000${description.text}\u0000${index}`}>
       <strong>{description.label}:</strong> {description.text}
     </li>)}
   </ul>;
 }
 
-function approvedDescriptions(descriptions: DescriptionResponse[]): PublishedDescription[] {
+interface ListDescription extends PublishedDescription {
+  revisionId?: string;
+}
+
+function approvedDescriptions(descriptions: DescriptionResponse[]): ListDescription[] {
   return [...descriptions]
     .sort((left, right) => left.displayOrder - right.displayOrder)
     .flatMap((description) => {
@@ -121,6 +126,6 @@ function approvedDescriptions(descriptions: DescriptionResponse[]): PublishedDes
       const approved = description.revisions.find(
         (revision) => revision.revisionId === description.approvedRevisionId && revision.state === "APPROVED",
       );
-      return approved ? [{ label: approved.label, text: approved.text }] : [];
+      return approved ? [{ revisionId: approved.revisionId, label: approved.label, text: approved.text }] : [];
     });
 }

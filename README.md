@@ -20,6 +20,8 @@ CANVAS includes a local, admin-operated MVP that proves the complete workflow:
 
 The MVP is not a production service. It uses a deterministic placeholder caption worker and placeholder WAV narration; no image model, GPU, cloud account, or paid service is required.
 
+The implemented workflow is a locally runnable demonstration, not release acceptance. Human accessibility gates remain pending, including complete keyboard and visible-focus review, screen-reader verification, 200% zoom and 320 CSS-pixel reflow checks, and manual contrast review. See [Manual testing](docs/manual-testing.md) for the required acceptance procedure.
+
 ## Why CANVAS
 
 Many artworks are exhibited without meaningful visual descriptions. Existing alternatives may require specialized staff, expensive vendors, or substantial manual effort. CANVAS aims to reduce that production burden while preserving human judgment, artistic context, and editorial responsibility.
