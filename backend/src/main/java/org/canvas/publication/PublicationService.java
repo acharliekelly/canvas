@@ -304,8 +304,16 @@ public class PublicationService {
 
     public record PublishedDescriptionResult(String label, String text) {}
 
+    /**
+     * Public original-image content with its media type and byte size. Callers own and must close
+     * {@code content}.
+     */
     public record PublicImage(InputStream content, String mediaType, long byteSize) {}
 
+    /**
+     * Public generated-asset content with its media type, byte size, and content-identity input
+     * key. Callers own and must close {@code content}.
+     */
     public record PublicAsset(InputStream content, String mediaType, long byteSize, String inputKey) {}
 
     public static class PublicationProblem extends RuntimeException {

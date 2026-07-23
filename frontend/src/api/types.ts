@@ -36,9 +36,10 @@ export interface DescriptionRevisionResponse {
 }
 
 /**
- * The current revision and append-only revision history for one description. `approvedRevisionId`
- * can identify retained approved history while `currentRevision` is a newer draft; `version` is
- * the optimistic-concurrency value for description mutations.
+ * The current revision plus retained immutable approved history for one description.
+ * `approvedRevisionId` can identify an approved revision while `currentRevision` is a newer,
+ * editable unapproved draft; `version` is the optimistic-concurrency value for description
+ * mutations.
  */
 export interface DescriptionResponse {
   descriptionId: string;

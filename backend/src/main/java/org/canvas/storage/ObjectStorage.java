@@ -69,8 +69,7 @@ public interface ObjectStorage {
     }
 
     /**
-     * Exact persisted byte count and media type used to determine whether a stored object is safe
-     * to reuse during compensation and repair checks.
+     * Exact persisted byte count and media type used to support cache reuse and repair validation.
      */
     record ObjectMetadata(long byteSize, String mediaType) {
     }

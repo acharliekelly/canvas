@@ -155,7 +155,7 @@ export function DescriptionEditor({ artworkId, artworkVersion: initialArtworkVer
   }
 
   function addGeneratedDescription(generated: DescriptionResponse) {
-    // A redelivered job replaces this ID's server state; generated responses remain unapproved drafts.
+    // A redelivered job replaces this ID's server state, which may have been approved after generation.
     const alreadyPresent = knownDescriptionIds.current.has(generated.descriptionId);
     knownDescriptionIds.current.add(generated.descriptionId);
     setDescriptions((current) => ordered([

@@ -71,7 +71,7 @@ package org.canvas.artwork;
 Use accurate equivalents for:
 
 - caption: persistent orchestration and replaceable worker contract, never model implementation;
-- description: ordered descriptions and append-only revision/approval semantics;
+- description: ordered descriptions, editable current drafts, and retained immutable approved revisions;
 - identity: configured administrator and session/CSRF security boundary;
 - publication: immutable snapshots, public reads, and generated-asset association;
 - shared: cross-module error/readiness primitives only;
@@ -88,7 +88,7 @@ Add interface and method JavaDoc that states:
 - `get` returns a stream the caller must close;
 - `head` returns empty only for a missing object and propagates other storage failures;
 - `delete` is safe when the key is already absent;
-- `StoredObject`/`ObjectMetadata` describe the exact persisted key, byte count, and media type used for compensation/repair checks.
+- `StoredObject` describes the exact persisted key used for compensation and repair confirmation; `ObjectMetadata` supplies byte count and media type for cache reuse and repair validation.
 
 Use `@param`, `@return`, and `@throws` only where they add these non-obvious guarantees.
 
@@ -262,7 +262,7 @@ Add TSDoc to `apiFetch` stating:
 
 In `api/types.ts`, add targeted TSDoc to the interface/group level for:
 
-- `DescriptionResponse`: current revision plus append-only history; `approvedRevisionId` may name retained approved history while current is a new draft; `version` is optimistic concurrency;
+- `DescriptionResponse`: current revision plus retained immutable approved history; `approvedRevisionId` may name approved history while the current unapproved draft is editable; `version` is optimistic concurrency;
 - `CaptionJobResponse`: polling lifecycle, terminal states, attempt count, optional result, sanitized error;
 - `PublicationResponse`: `created`, returned artwork version, current snapshot content, and versioned `qrUrl`;
 - `PublicArtwork`: current immutable snapshot only; drafts/admin metadata excluded; audio URLs may be null for conservatively upgraded legacy snapshots.
@@ -274,7 +274,7 @@ Do not add comments to obvious scalar fields.
 Add short comments/TSDoc that explain:
 
 - `knownDescriptionIds` prevents repeated completed-job polling responses from incrementing artwork version twice;
-- generated results replace the same description by ID and remain drafts;
+- initial generated results create unapproved drafts; later redelivery replaces the same description by ID with its current server state, which may have since been approved;
 - approval-dialog dismissal restores focus to its trigger, with status fallback if the trigger disappeared;
 - dirty local edits disable approval because approval must target the saved revision;
 - caption polling has one timer owner, stops on terminal state/unmount, and may safely redeliver a result;
@@ -311,7 +311,7 @@ cd frontend && PATH=/home/charlie/.nvm/versions/node/v24.18.0/bin:$PATH npm run 
 cd frontend && PATH=/home/charlie/.nvm/versions/node/v24.18.0/bin:$PATH npm run typecheck
 cd frontend && PATH=/home/charlie/.nvm/versions/node/v24.18.0/bin:$PATH npm test -- --run
 cd caption-worker && python -m pytest -q
-rg -n "CSRF|not automatically retried|append-only|redeliver|restore focus|does not fetch|process readiness" frontend/src caption-worker/src
+rg -n "CSRF|not automatically retried|immutable approved|redeliver|restore focus|does not fetch|process readiness" frontend/src caption-worker/src
 ! rg -n "TODO|FIXME|TBD|XXX" frontend/src caption-worker/src
 git diff --check
 ```

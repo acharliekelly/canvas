@@ -47,7 +47,7 @@ Document nested input/output records only where their fields encode identity, ge
 Add class or method JavaDoc and focused inline comments to:
 
 - `ArtworkService`: validate-before-store behavior and storage compensation if persistence fails;
-- `DescriptionService`: append-only revision history, draft replacement, approved-revision preservation, artwork locking/version effects, and two-phase reorder used to preserve unique ordering constraints;
+- `DescriptionService`: immutable approved-revision history, in-place current-draft replacement, approved-revision preservation, artwork locking/version effects, and two-phase reorder used to preserve unique ordering constraints;
 - `CaptionJobService` and `CaptionJobRunner`: single active job, explicit claim/run/finalize lifecycle, stale-work recovery, retry behavior, transaction boundaries, and retained successful results;
 - `PublicationService`: approved-revision selection, immutable snapshot creation, current-only idempotency, A-to-B-to-A audit behavior, content-hash framing, exact asset association, and current-publication-only public authorization;
 - `AssetService`: content-identity caching, transaction-scoped same-key serialization, repair eligibility, generator/config compatibility, object compensation, lock release after transaction completion, and limits of in-process locking.
