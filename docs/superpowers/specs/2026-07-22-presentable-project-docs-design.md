@@ -6,17 +6,19 @@
 
 ## Goal
 
-Replace the repository's remaining `_work in progress_` documents with concise, authoritative project documentation grounded in the implemented local MVP, accepted ADRs, and current product direction.
+Complete the repository's project-facing documentation with concise, authoritative descriptions grounded in the implemented local MVP, accepted ADRs, and current product direction. This includes replacing the remaining `_work in progress_` documents and correcting older overview and architecture text that still presents deferred model, GPU, and narration capabilities as current.
 
 ## Scope
 
-Rewrite only:
+Rewrite or correct:
 
 - `VISION.md`;
 - `docs/cost-principles.md`;
-- `docs/roadmap.md`.
+- `docs/roadmap.md`;
+- `README.md`; and
+- `docs/architecture.md`.
 
-The change is documentation-only. It does not alter product behavior, architecture, dependencies, configuration, APIs, or deployment.
+Keep this approved design and its implementation plan aligned with that documentation scope. The change is documentation-only. It records the implemented architecture accurately but does not alter product behavior, architecture, dependencies, configuration, APIs, deployment, product scope, or accepted ADRs.
 
 ## Documentation principles
 
@@ -103,9 +105,20 @@ List integrations, analytics, localization, CMS connectors, exhibitions/collecti
 
 The roadmap will not include calendar estimates. Each milestone will contain goal, deliverables, success criteria, and explicit exclusions or decision gates.
 
+## Project overview and architecture
+
+`README.md` will present the current local MVP workflow accurately:
+
+- deterministic placeholder draft generation uses submitted metadata and does not analyze images;
+- the generic placeholder WAV does not narrate approved text;
+- the implemented modular-monorepo topology is current rather than merely planned; and
+- real caption models, GPU runtimes or providers, and text-specific audio generation remain future evaluations behind replaceable contracts.
+
+`docs/architecture.md` will describe the implemented runtime topology and component responsibilities without incomplete headings or vendor assumptions. It will identify the backend as the authority for authentication, workflow, persistence, caption-job orchestration, assets, and publication; describe the current model-free worker; trace upload through draft, approval, asset association, and public delivery; explain PostgreSQL, private object-storage, and immutable-publication boundaries; and gate future services and provider choices on evidence and ADR review.
+
 ## Cross-document integration
 
-The three rewritten documents will link to relevant authoritative sources:
+The five project-facing documents will link to relevant authoritative sources:
 
 - `README.md` for local operation and implemented status;
 - `docs/product-scope.md` for MVP boundaries and exclusions;
@@ -114,25 +127,28 @@ The three rewritten documents will link to relevant authoritative sources:
 - `docs/manual-testing.md` for deferred accessibility acceptance;
 - the other rewritten documents where their concerns overlap.
 
-No README restructuring is required unless a broken or missing link prevents discovery of these existing files.
+README and architecture corrections must agree with the implemented code and configuration and with accepted ADRs 0003, 0006, and 0007. Historical ADRs remain unchanged; where an earlier record names a candidate model, current project-facing documentation follows the later accepted decision that no real model or provider is selected.
 
 ## Verification
 
 Verification will confirm:
 
 - no Markdown document begins with `_work in progress_`;
-- the three documents contain no placeholder headings or empty sections;
+- the project-facing documents contain no incomplete headings or empty sections;
 - relative Markdown links resolve to repository files;
-- roadmap current-state claims match the implemented MVP and ADRs;
+- README, architecture, and roadmap current-state claims match the implemented MVP, configuration, and accepted ADRs;
+- deterministic placeholder caption and generic WAV behavior are distinguished from real image analysis and narration;
 - deferred work remains clearly deferred;
 - cost statements agree with project cost principles and do not guarantee the aspirational target;
 - accessibility wording distinguishes automated evidence, incomplete human validation, and formal certification;
-- no vendor is described as selected unless an accepted ADR says so;
+- no current model, GPU provider, hosting vendor, or text-to-speech service is described as selected;
+- no unresolved `TBD`, `TODO`, `FIXME`, `XXX`, WIP marker, or bare component-responsibility placeholder remains in the project-facing documents;
 - `git diff --check` passes.
 
 ## Out of scope
 
 - Market sizing, fundraising language, partnership claims, delivery dates, staffing plans, and contractual service levels.
 - Changes to product scope, architecture, ADR status, or implementation.
+- Changes to accepted ADR content, even where historical records name previously considered technologies.
 - Formal accessibility conformance claims.
 - Production vendor or model selection.

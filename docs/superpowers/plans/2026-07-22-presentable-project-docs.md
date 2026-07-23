@@ -2,20 +2,20 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Replace the repository's remaining incomplete documents with accurate, concise vision, cost, and roadmap guidance grounded in the implemented local MVP and accepted ADRs.
+**Goal:** Complete the repository's project-facing documentation with accurate, concise vision, cost, roadmap, overview, and architecture guidance grounded in the implemented local MVP and accepted ADRs.
 
-**Architecture:** Rewrite the three existing documents in place and use links to authoritative product, architecture, decision, and acceptance records rather than duplicating detailed implementation material. Separate the product narrative and economic constraints from the milestone roadmap so each file has one clear responsibility.
+**Architecture:** Rewrite the incomplete vision, cost, and roadmap documents in place, then correct the project overview and architecture where final review finds stale planned-model or narration claims. Use links to authoritative product, decision, and acceptance records rather than duplicating them. Separate product narrative, economic constraints, milestones, local operation, and component boundaries so each file has one clear responsibility.
 
 **Tech Stack:** Markdown, Git, repository-local shell verification.
 
 ## Global Constraints
 
-- Modify only `VISION.md`, `docs/cost-principles.md`, and `docs/roadmap.md` during implementation.
+- Project-facing documentation scope is `README.md`, `VISION.md`, `docs/architecture.md`, `docs/cost-principles.md`, and `docs/roadmap.md`. Keep this approved design and plan aligned when final review expands or clarifies the documentation-only correction.
 - Describe the implemented local MVP accurately and distinguish it from production readiness.
 - Distinguish implemented behavior, accepted direction, and future hypotheses.
 - Do not promise delivery dates, production costs, accessibility conformance, model quality, or unvalidated vendors.
 - Preserve explicit human approval, accessibility, nonprofit affordability, privacy/consent, auditable publication, and component replaceability as durable principles.
-- Do not change product scope, architecture, ADR status, implementation, dependencies, configuration, APIs, or deployment.
+- Do not change product scope, accepted ADR content or status, implementation, dependencies, configuration, APIs, or deployment. Correcting the architecture document records existing behavior; it does not authorize an architecture change.
 - Use relative Markdown links to authoritative repository documents rather than duplicating them.
 - Do not use `_work in progress_`, placeholder headings, empty sections, `TBD`, or unresolved `TODO` text.
 
@@ -212,4 +212,71 @@ Manually confirm that every milestone subsection contains prose or a non-empty l
 ```bash
 git add docs/roadmap.md
 git commit -m "docs: replace obsolete roadmap with current milestones"
+```
+
+---
+
+### Task 3: Correct current-workflow and architecture presentation
+
+**Files:**
+- Modify: `README.md`
+- Modify: `docs/architecture.md`
+- Modify: `docs/superpowers/specs/2026-07-22-presentable-project-docs-design.md`
+- Modify: `docs/superpowers/plans/2026-07-22-presentable-project-docs.md`
+
+**Interfaces:**
+- Consumes: implemented behavior from `compose.yaml`, backend and worker code/configuration, and accepted boundaries from ADRs 0003, 0006, and 0007.
+- Produces: a truthful entry-point overview, a complete implemented architecture reference, and design/plan records that describe the full presentability scope.
+
+- [ ] **Step 1: Correct the README's current MVP claims**
+
+State that the current generated draft is deterministic placeholder text derived only from submitted metadata and does not analyze the image. State that the current generic placeholder WAV does not narrate approved text. Present the modular-monorepo topology as implemented, not planned, and describe the worker as the current model-free FastAPI contract.
+
+Remove any Technology direction preselection of JoyCaption, RunPod, or another production model, GPU provider, hosting vendor, or text-to-speech service. State that real caption-model, GPU/execution-provider, and text-specific audio integrations remain future evaluations behind the existing contracts and human-approval rules.
+
+- [ ] **Step 2: Replace the incomplete architecture page**
+
+Document:
+
+- the implemented React, Spring Boot modular-monolith, PostgreSQL, private S3-compatible storage, FastAPI worker, and Compose topology;
+- complete responsibilities for frontend, backend modules, worker, persistence, storage, and local infrastructure;
+- the current worker's metadata-only deterministic response and absence of model or GPU inference;
+- backend authority for authentication, revisions, approval, job orchestration, asset association, and publication;
+- upload, draft, approval, publication, and public-delivery data flow;
+- PostgreSQL/object-storage separation, private original/generated buckets, cached content identities, immutable publication snapshots, and current-snapshot public authorization; and
+- evidence and ADR gates for future models, providers, audio generation, or additional services.
+
+Do not invent production behavior or select a vendor.
+
+- [ ] **Step 3: Align the approved design and plan**
+
+Expand the design and plan scope from only vision/cost/roadmap completion to include the necessary README and architecture corrections. Preserve the documentation-only boundary, state that product scope and accepted ADR content remain unchanged, and add verification for implemented-claim accuracy, placeholder-versus-real capability wording, vendor neutrality, relative links, incomplete content, and diff cleanliness.
+
+- [ ] **Step 4: Verify the final documentation set**
+
+Validate README and architecture claims against the code/configuration and ADRs 0003, 0006, and 0007, then run focused checks:
+
+```bash
+! rg -l -i '^_work in progress_$' --glob '*.md' .
+! rg -n 'TBD|TODO|FIXME|XXX|^## [^[:alnum:]]*$' \
+    README.md VISION.md docs/architecture.md docs/cost-principles.md docs/roadmap.md
+rg -q 'deterministic, model-free placeholder caption worker' README.md
+rg -q 'does not narrate the approved text' README.md
+rg -q '^## Current architecture$' README.md
+rg -q '^## Implemented topology$' docs/architecture.md
+rg -q '^## Component responsibilities$' docs/architecture.md
+rg -q '^## Workflow and data flow$' docs/architecture.md
+! rg -n 'JoyCaption|RunPod' README.md docs/architecture.md VISION.md docs/roadmap.md
+git diff --check
+```
+
+Check every relative Markdown link in the repository and manually confirm that project-facing documents do not present a real model, GPU provider, production host, or text-to-speech service as selected. Historical references in accepted ADRs and implementation records are not current vendor selections and remain unchanged.
+
+- [ ] **Step 5: Commit the final correction as one focused change**
+
+```bash
+git add README.md docs/architecture.md \
+  docs/superpowers/specs/2026-07-22-presentable-project-docs-design.md \
+  docs/superpowers/plans/2026-07-22-presentable-project-docs.md
+git commit -m "docs: correct current MVP architecture presentation"
 ```

@@ -4,21 +4,20 @@
 
 CANVAS is an accessibility platform for creating, reviewing, publishing, and sharing rich visual descriptions of artwork. The project is designed to help artists, galleries, museums, and community organizations make visual art more accessible to blind and low-vision audiences.
 
-CANVAS uses machine-generated descriptions as drafts, not final authority. A human reviewer edits and approves each description before publication. Approved descriptions can then be presented as text, converted to audio, and linked from a printable QR code placed beside the artwork.
+CANVAS uses machine-generated descriptions as drafts, not final authority. A human reviewer edits and approves each description before publication. Approved descriptions are published as text; the intended production workflow can also turn that exact text into narration and link the public page from a printable QR code placed beside the artwork.
 
 ## Project status
 
 CANVAS includes a local, admin-operated MVP that proves the complete workflow:
 
 1. Upload an artwork image.
-2. Generate a draft description with a visual-language model.
-3. Review and edit the draft.
-4. Approve the final description.
-5. Generate and cache audio narration.
-6. Publish an accessible artwork page.
-7. Create a QR code linking to that page.
+2. Create a manual draft or request deterministic placeholder text derived only from submitted metadata; the placeholder worker does not inspect the image.
+3. Review and edit the draft through revision history.
+4. Explicitly approve the exact revision that may be published.
+5. Create or reuse a generic placeholder WAV and a QR code for the public URL.
+6. Publish an artwork page containing the approved description text.
 
-The MVP is not a production service. It uses a deterministic placeholder caption worker and placeholder WAV narration; no image model, GPU, cloud account, or paid service is required.
+The MVP is not a production service. It uses a deterministic, model-free placeholder caption worker and a generic placeholder WAV that does not narrate the approved text; no image model, GPU, cloud account, or paid service is required.
 
 The implemented workflow is a locally runnable demonstration, not release acceptance. Human accessibility gates remain pending, including complete keyboard and visible-focus review, screen-reader verification, 200% zoom and 320 CSS-pixel reflow checks, and manual contrast review. See [Manual testing](docs/manual-testing.md) for the required acceptance procedure.
 
@@ -28,15 +27,15 @@ Many artworks are exhibited without meaningful visual descriptions. Existing alt
 
 The project is being developed with potential nonprofit and accessibility-sector partnerships in mind. Affordability is a product requirement, not an afterthought: the intended operating model should remain plausible for an organization whose available monthly technology budget may be measured in tens of dollars.
 
-## Planned architecture
+## Current architecture
 
-CANVAS is expected to use a modular monorepo:
+CANVAS is implemented as a modular monorepo:
 
 ```text
 canvas/
 ├── frontend/        React administration and public experience
 ├── backend/         Spring Boot API and workflow orchestration
-├── caption-worker/  Python inference service using JoyCaption or a successor
+├── caption-worker/  Deterministic, model-free Python caption contract
 ├── infrastructure/  Local development and deployment configuration
 └── docs/            Product, architecture, cost, and decision records
 ```
@@ -44,22 +43,18 @@ canvas/
 At a high level:
 
 ```text
-React frontend
+React frontend (administration and public pages)
       |
-Spring Boot API
-      |
-PostgreSQL + S3-compatible object storage
-      |
-background caption jobs
-      |
-on-demand Python GPU worker
-      |
-human review and approval
-      |
-text, audio, public artwork page, and QR code
+Spring Boot modular-monolith API
+      ├── PostgreSQL application state
+      ├── private S3-compatible object storage
+      └── asynchronous caption jobs
+                    |
+          deterministic FastAPI worker
+          (submitted metadata only; no model or GPU)
 ```
 
-The caption engine is intentionally isolated behind an interface so that CANVAS is not permanently coupled to JoyCaption, a particular GPU provider, or any single cloud vendor.
+The backend owns editorial, persistence, asset, and publication authority. Caption execution is isolated behind a typed HTTP contract, and object storage is isolated behind an S3-compatible interface. A real caption model, GPU runtime, and execution provider remain future evaluations rather than selected components. See [Architecture](docs/architecture.md) and the [accepted decision records](docs/decisions/README.md) for the implemented boundaries.
 
 ## Core principles
 
@@ -178,16 +173,15 @@ CONFIRM=1 make reset-local-data
 
 ## Technology direction
 
-- React and TypeScript
-- Spring Boot and Java
-- PostgreSQL
-- Python caption worker
-- JoyCaption as the initial captioning engine
-- S3-compatible object storage
-- On-demand GPU compute, initially evaluated with RunPod
-- Text-to-speech and QR generation after editorial approval
+- React and TypeScript for the browser experience
+- Spring Boot and Java for workflow authority and API orchestration
+- PostgreSQL for application state
+- A Python caption worker behind a typed HTTP contract; the current worker is deterministic and model-free
+- Private S3-compatible object storage for artwork originals and generated assets
+- Replaceable audio and QR generators invoked only from approved publication input; the current audio generator returns a generic placeholder WAV
+- Future evaluation of a real caption model, GPU runtime or execution provider, and text-specific audio generator
 
-Specific vendors remain replaceable until validated by cost, reliability, accessibility, and operational requirements.
+No production model, GPU provider, hosting vendor, or text-to-speech service is selected. Any adoption must be validated against cost, reliability, accessibility, privacy, security, and operational requirements while preserving the existing contracts and human-approval rules.
 
 ## Documentation
 
