@@ -2,13 +2,13 @@
 
 **Status:** Accepted
 
-**Decision date:** 2026-07-21
+**Decision date:** 2026-07-22
 
 **Recorded date:** 2026-07-22
 
 ## Context
 
-CANVAS must support manual and generated editorial paths without treating machine output as final authority. Approved or published wording must remain auditable when an editor makes a later change. This retrospective record documents the description and publication model implemented on 2026-07-21.
+CANVAS must support manual and generated editorial paths without treating machine output as final authority. Approved or published wording must remain auditable when an editor makes a later change. The core publication model was introduced on 2026-07-21 and finalized in the revision-safe implemented form recorded here on 2026-07-22.
 
 Organizations may use different description categories, and an artwork may be uploaded before any description exists.
 

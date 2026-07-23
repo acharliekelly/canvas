@@ -14,7 +14,9 @@ Public artwork and generated-asset routes remain anonymous, but draft editing, a
 
 ## Decision
 
-The MVP has one administrator configured through environment values. The configured password is stored as a BCrypt hash rather than plaintext. Spring Security establishes a server-side session and identifies it with an HTTP-only session cookie. State-changing requests require CSRF protection, and authentication and authorization failures from API routes use JSON 401 and 403 responses.
+The MVP has one administrator configured through environment values. The documented local/default configuration supplies a BCrypt-encoded password hash rather than plaintext. At runtime, an unprefixed configured value is treated as BCrypt for compatibility, while an explicit Spring Security `{id}` prefix is preserved so formats supported by its delegating password encoder can be used. BCrypt is therefore the documented default, not the only format enforced by the application.
+
+Spring Security establishes a server-side session and identifies it with an HTTP-only session cookie. State-changing requests require CSRF protection, and authentication and authorization failures from API routes use JSON 401 and 403 responses.
 
 Registration, organizations, roles, password recovery, and external identity providers are explicitly deferred. They are not implied by the configured administrator account.
 
@@ -27,7 +29,7 @@ Registration, organizations, roles, password recovery, and external identity pro
 
 ## Consequences
 
-The local demo has a small authentication surface and no account database. The backend must retain server-side session state, and operators must handle the administrator username and BCrypt hash as environment secrets.
+The local demo has a small authentication surface and no account database. The backend must retain server-side session state, and operators must handle the administrator username and encoded password value as environment secrets. Operators following the documented local setup generate a BCrypt hash; operators choosing an explicitly prefixed alternative are limited to formats supported by Spring Security's delegating password encoder.
 
 Because all actions belong to one configured administrator, the MVP does not provide distinct multi-user audit identity, organization ownership, invitation, or recovery workflows.
 

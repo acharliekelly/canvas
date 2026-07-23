@@ -2,21 +2,21 @@
 
 **Status:** Accepted
 
-**Decision date:** 2026-07-21
+**Decision date:** 2026-07-22
 
 **Recorded date:** 2026-07-22
 
 ## Context
 
-Audio and QR generation can incur compute or provider cost, and mutable generated files would make a historical publication depend on whichever bytes happen to occupy a stable path. Original artwork also has different access and lifecycle concerns from public generated assets. This retrospective record documents the asset and storage design implemented on 2026-07-21.
+Audio and QR generation can incur compute or provider cost, and mutable generated files would make a publication depend on whichever bytes happen to occupy a stable path. Original artwork also has different access and lifecycle concerns from public generated assets. The asset pipeline was introduced on 2026-07-21 and finalized with the association, repair, and credential boundaries recorded here on 2026-07-22.
 
 The local MVP uses deterministic placeholder audio and local S3-compatible storage, but its identity and publication rules must remain valid when generators or storage providers change.
 
 ## Decision
 
-Audio derives from the exact approved text in a publication, and QR codes derive from the exact stable publication URL. Generated-asset metadata and stored objects are cached under deterministic content identities that include the generator namespace and relevant input. A publication snapshot persists the exact audio association for each published description and the exact QR association for the publication.
+Audio asset identity and publication association derive from the approved revision identity, label, and exact approved text, and QR codes derive from the exact stable publication URL. The MVP audio generator nevertheless returns the same generic checked-in placeholder WAV bytes for every input; the input-derived identity proves caching and association behavior but does not claim that those bytes narrate the approved text. Generated-asset metadata and stored objects are cached under deterministic content identities that include the generator namespace and relevant input. A publication snapshot persists the exact audio association for each published description and the exact QR association for the publication.
 
-Public generated-asset routes contain the generated-asset UUID and return immutable cache headers. They resolve the snapshot association before serving an object, so an older association is not silently redirected to newer bytes.
+Public generated-asset routes contain the generated-asset UUID and return immutable cache headers. They resolve the current publication snapshot association before serving an object, so an older association is not silently redirected to newer bytes and a URL from a superseded snapshot may return 404.
 
 If cached metadata exists but its object is missing, generation repairs the object at the same content-addressed key while holding a transaction-scoped same-key lock. Repair retains the metadata identity instead of creating a duplicate row; database uniqueness also enforces one metadata record per asset kind and input key.
 
@@ -25,20 +25,20 @@ Originals and generated assets use separate private S3-compatible buckets. MinIO
 ## Alternatives considered
 
 - Regenerate assets on every request. This avoids cache metadata but repeats cost and can produce inconsistent bytes over time.
-- Use stable mutable asset aliases. This provides short URLs but allows cached or historical publications to serve replacement content without a new association.
+- Use stable mutable asset aliases. This provides short URLs but can make a still-published URL serve replacement content without a new association.
 - Store binary data in database blobs or a local filesystem. This reduces local services but couples binary scale and portability to the application host or database.
 - Use one shared bucket. This is simpler to configure but weakens separation between private originals and generated assets.
 - Let the backend use MinIO root credentials. This avoids provisioning an application identity but grants unnecessary administrative authority to the runtime application.
 
 ## Consequences
 
-Published assets are reproducible and tied to exact public provenance. Reuse lowers repeated generation cost, while separate private buckets and a scoped backend identity improve isolation.
+Generated-asset identities and publication associations are tied to exact public provenance. The MVP's generic placeholder WAV demonstrates that identity and association without providing text-specific narration bytes; a production generator can use the same input contract to do so. Reuse lowers repeated generation cost, while separate private buckets and a scoped backend identity improve isolation.
 
-The system must maintain content-key rules, metadata-to-object consistency, publication associations, and repair locking. Historical assets and metadata accumulate and need an explicit retention or migration policy if storage growth becomes material.
+The system must maintain content-key rules, metadata-to-object consistency, publication associations, and repair locking. Superseded assets and metadata may accumulate even though their former public URLs are not authorized by the current publication route, and they need an explicit retention or migration policy if storage growth becomes material.
 
 ## Reversal or migration path
 
-New generators, storage providers, or key namespaces can be introduced through versioned metadata and forward migrations. Existing asset associations and UUID-bearing public URLs must continue resolving to their original bytes, or be migrated with an explicit compatibility layer, while new publications adopt the new namespace.
+New generators, storage providers, or key namespaces can be introduced through versioned metadata and forward migrations. UUID-bearing asset URLs in the currently published snapshot must continue resolving to their associated bytes, or be migrated with an explicit compatibility layer, while new publications adopt the new namespace. URLs from superseded snapshots are outside that continuity guarantee and may return 404 under the current-publication authorization model; their stored associations remain historical data subject to an explicit retention or migration policy.
 
 ## References
 

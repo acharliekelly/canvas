@@ -2,13 +2,13 @@
 
 **Status:** Accepted
 
-**Decision date:** 2026-07-21
+**Decision date:** 2026-07-22
 
 **Recorded date:** 2026-07-22
 
 ## Context
 
-The local MVP must demonstrate the complete editorial workflow without a cloud account, GPU, paid service, or distributed operational burden. This retrospective record documents the topology implemented on 2026-07-21.
+The local MVP must demonstrate the complete editorial workflow without a cloud account, GPU, paid service, or distributed operational burden. Its component topology was introduced on 2026-07-21 and finalized in the implemented form recorded here on 2026-07-22.
 
 The system still needs clear ownership boundaries around browser interaction, workflow and persistence, caption execution, object storage, and local orchestration.
 

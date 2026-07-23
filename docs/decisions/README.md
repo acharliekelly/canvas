@@ -21,11 +21,11 @@ Accepted ADRs are historical records. Correct typographical errors without chang
 | --- | --- | --- | --- | --- |
 | [0001-project-foundation.md](0001-project-foundation.md) | Project Foundation | Accepted | 2026-07-21 | — |
 | [0002-architecture-decision-record-governance.md](0002-architecture-decision-record-governance.md) | Architecture Decision Record Governance | Accepted | 2026-07-22 | 2026-07-22 |
-| [0003-local-mvp-deployment-topology.md](0003-local-mvp-deployment-topology.md) | Local MVP Deployment Topology | Accepted | 2026-07-21 | 2026-07-22 |
+| [0003-local-mvp-deployment-topology.md](0003-local-mvp-deployment-topology.md) | Local MVP Deployment Topology | Accepted | 2026-07-22 | 2026-07-22 |
 | [0004-admin-only-session-authentication.md](0004-admin-only-session-authentication.md) | Admin-Only Session Authentication | Accepted | 2026-07-21 | 2026-07-22 |
-| [0005-revisioned-description-and-publication-model.md](0005-revisioned-description-and-publication-model.md) | Revisioned Description and Publication Model | Accepted | 2026-07-21 | 2026-07-22 |
+| [0005-revisioned-description-and-publication-model.md](0005-revisioned-description-and-publication-model.md) | Revisioned Description and Publication Model | Accepted | 2026-07-22 | 2026-07-22 |
 | [0006-replaceable-caption-job-contract.md](0006-replaceable-caption-job-contract.md) | Replaceable Caption Job Contract | Accepted | 2026-07-21 | 2026-07-22 |
-| [0007-immutable-generated-assets-and-storage.md](0007-immutable-generated-assets-and-storage.md) | Immutable Generated Assets and Storage | Accepted | 2026-07-21 | 2026-07-22 |
+| [0007-immutable-generated-assets-and-storage.md](0007-immutable-generated-assets-and-storage.md) | Immutable Generated Assets and Storage | Accepted | 2026-07-22 | 2026-07-22 |
 
 ## Template
 

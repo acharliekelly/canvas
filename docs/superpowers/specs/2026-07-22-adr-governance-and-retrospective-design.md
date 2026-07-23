@@ -73,7 +73,7 @@ Records that the backend owns job orchestration and persistence while caption in
 
 ### ADR 0007: Immutable generated assets and storage
 
-Records that audio is generated from exact approved published revisions and QR codes from exact publication URLs; generated assets are cached by deterministic content identity; public assets use versioned identifiers associated with the publication snapshot; missing objects may be repaired without duplicating metadata; and original and generated objects use separate private buckets. MinIO root credentials are bootstrap-only while the backend uses a bucket-scoped application identity.
+Records that audio identity and publication association derive from exact approved published revisions even though the MVP generator returns generic placeholder WAV bytes, and that QR codes derive from exact publication URLs. Generated assets are cached by deterministic content identity; public assets use versioned identifiers authorized through the current publication snapshot, so superseded snapshot URLs may return 404; missing objects may be repaired without duplicating metadata; and original and generated objects use separate private buckets. MinIO root credentials are bootstrap-only while the backend uses a bucket-scoped application identity.
 
 ## Existing ADR treatment
 
