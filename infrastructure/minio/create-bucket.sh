@@ -1,11 +1,14 @@
 #!/bin/sh
 set -eu
 
+# MinIO root credentials belong only to the server and this one-shot bootstrap, never the backend.
 mc alias set local http://minio:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD"
+# Both configured buckets are explicitly private.
 mc mb --ignore-existing "local/$CANVAS_ORIGINALS_BUCKET"
 mc mb --ignore-existing "local/$CANVAS_GENERATED_BUCKET"
 mc anonymous set none "local/$CANVAS_ORIGINALS_BUCKET"
 mc anonymous set none "local/$CANVAS_GENERATED_BUCKET"
+# --ignore-existing, repeatable user update, and policy recreation make initialization safe after ordinary restarts/config updates.
 mc admin user add local "$CANVAS_S3_ACCESS_KEY" "$CANVAS_S3_SECRET_KEY"
 
 policy_file=/tmp/canvas-backend-policy.json
@@ -33,5 +36,6 @@ cat > "$policy_file" <<EOF
   ]
 }
 EOF
+# Backend credentials receive only bucket location/list and object get/put/delete on the configured originals and generated buckets.
 mc admin policy create local canvas-backend-policy "$policy_file"
 mc admin policy attach local canvas-backend-policy --user "$CANVAS_S3_ACCESS_KEY"

@@ -1,5 +1,6 @@
 ALTER TABLE caption_jobs DROP CONSTRAINT caption_jobs_result_check;
 
+-- Retain successful terminal job ownership so generated drafts remain auditable and queryable.
 ALTER TABLE caption_jobs ADD COLUMN retained_result_description_id UUID;
 
 UPDATE caption_jobs
