@@ -199,8 +199,8 @@ Add class/method JavaDoc and concise comments in `AssetService` explaining:
 - the in-memory keyed lock serializes same-process creators only and is not a distributed lock;
 - the lock is deliberately held until transaction completion so rollback compensation finishes before a waiter can reuse the key;
 - cache hits verify object size/media type, and missing/mismatched objects are regenerated only when the active input/generator configuration can reproduce compatible metadata;
-- newly created objects are deleted on rollback, while pre-existing shared objects are never treated as transaction-owned;
-- a cross-process uniqueness race propagates and rolls back, compensating only the transaction-owned losing object;
+- storage puts register key-based rollback deletion; cache hits do not register ownership or compensation;
+- a cross-process uniqueness race propagates and runs its registered key-based rollback compensation, without cross-process storage isolation;
 - lock entries use reference counts so entries are removed only after the last holder/waiter completes.
 
 Preserve and refine the existing rollback/waiter comment rather than duplicating it.

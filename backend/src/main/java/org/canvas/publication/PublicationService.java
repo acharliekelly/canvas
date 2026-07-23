@@ -55,8 +55,9 @@ public class PublicationService {
 
     /**
      * Publishes an immutable snapshot only when the locked artwork still matches {@code version}
-     * and at least one ordered description has an approved revision. Each description contributes
-     * its latest approved revision; unapproved drafts are excluded. Idempotency compares only the
+     * and at least one ordered description has an approved revision. Each description with an
+     * approved revision contributes its latest approval; draft-only descriptions contribute
+     * nothing. Idempotency compares only the
      * current snapshot, so A-to-B-to-A publishing creates a third audit event rather than
      * reusing historical A.
      */

@@ -27,8 +27,9 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 
 /**
  * Caches generated assets by kind, generator namespace, and exact input identity. Same-key
- * creation is serialized only within this JVM; the keyed lock is not a distributed lock, while
- * database uniqueness remains the cross-process guard.
+ * creation is serialized only within this JVM; the keyed lock is not a distributed lock.
+ * Database uniqueness constrains metadata but does not isolate the deterministic storage key
+ * across processes.
  */
 @Service
 public class AssetService {
@@ -174,9 +175,9 @@ public class AssetService {
         byte[] bytes = binary.bytes();
         ObjectStorage.StoredObject stored = storage.putGenerated(objectKey,
                 new ByteArrayInputStream(bytes), bytes.length, binary.mediaType());
-        // Only an object created by this transaction is rollback-owned. A cache hit refers to a
-        // shared object and must never be deleted as compensation. A cross-process uniqueness
-        // race propagates its database failure; rollback compensation removes this losing object.
+        // This registers key-based rollback compensation. A cross-process uniqueness race
+        // propagates its database failure and may share or replace this deterministic key; the
+        // compensation still deletes by key and does not provide cross-process isolation.
         registerRollbackCompensation(stored.objectKey());
         return stored;
     }
@@ -219,7 +220,8 @@ public class AssetService {
         entry.lock.lock();
         try {
             // Hold the lock until transaction completion, after rollback compensation finishes,
-            // so a waiter cannot reuse the key before cleanup of this transaction-owned object.
+            // so an in-JVM waiter cannot observe or delete the key during that cleanup. This does
+            // not protect the same key from another process.
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override
                 public int getOrder() {
