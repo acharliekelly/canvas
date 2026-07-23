@@ -117,13 +117,13 @@ Do not make GPU access a requirement for the default local test suite.
 
 Update documentation when behavior, architecture, operating cost, or scope changes.
 
-Record consequential choices as short decision records, including:
+Store architecture decision records in `docs/decisions/`. Use the next sequential four-digit identifier and a kebab-case filename: `NNNN-short-title.md`.
 
-- context
-- decision
-- alternatives considered
-- consequences
-- reversal or migration path
+Create or supersede an ADR in the same change whenever a consequential choice changes system boundaries, persistence or publication semantics, security, an external contract, deployment topology, operating-cost posture, or an accepted decision's constraints. Routine implementation details do not require an ADR.
+
+Every new or superseding ADR must include context, decision, alternatives considered, consequences, a reversal or migration path, and references. ADR 0001 is a grandfathered legacy-format exception: preserve it as historical evidence, but do not use it as a model for new records. Update `docs/decisions/README.md` whenever an ADR is added or its status changes. Accepted ADRs are historical records: do not silently rewrite them; create a new ADR that supersedes the earlier record.
+
+For retrospective ADRs, record both the original implementation or introduction date and the documentation date when they differ. If later work finalizes or refines the introduced implementation, state both dates in the record's context and use the decision date for the decision actually being recorded.
 
 Avoid presenting undecided vendors as settled architecture.
 
