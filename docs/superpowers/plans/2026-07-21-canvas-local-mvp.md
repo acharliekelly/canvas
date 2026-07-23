@@ -40,15 +40,15 @@ canvas/
 │   ├── src/test/                        shared browser-test setup
 │   └── e2e/                             core Playwright journeys
 ├── backend/
-│   ├── src/main/java/org/canvas/identity/
-│   ├── src/main/java/org/canvas/artwork/
-│   ├── src/main/java/org/canvas/description/
-│   ├── src/main/java/org/canvas/caption/
-│   ├── src/main/java/org/canvas/publication/
-│   ├── src/main/java/org/canvas/storage/
-│   ├── src/main/java/org/canvas/shared/
+│   ├── src/main/java/me.acharliekelly.canvas/identity/
+│   ├── src/main/java/me.acharliekelly.canvas/artwork/
+│   ├── src/main/java/me.acharliekelly.canvas/description/
+│   ├── src/main/java/me.acharliekelly.canvas/caption/
+│   ├── src/main/java/me.acharliekelly.canvas/publication/
+│   ├── src/main/java/me.acharliekelly.canvas/storage/
+│   ├── src/main/java/me.acharliekelly.canvas/shared/
 │   ├── src/main/resources/db/migration/
-│   └── src/test/java/org/canvas/
+│   └── src/test/java/me.acharliekelly.canvas/
 ├── caption-worker/
 │   ├── src/canvas_caption_worker/       deterministic HTTP worker
 │   └── tests/                           contract tests
@@ -67,10 +67,10 @@ Every Java package named above must include a Spring Modulith `package-info.java
 **Files:**
 - Create: `.editorconfig`, `.gitignore`, `.env.example`, `compose.yaml`, `Makefile`
 - Create: `backend/pom.xml`, `backend/mvnw`, `backend/mvnw.cmd`, `backend/.mvn/wrapper/*`
-- Create: `backend/src/main/java/org/canvas/CanvasApplication.java`
-- Create: `backend/src/main/java/org/canvas/shared/api/HealthController.java`
+- Create: `backend/src/main/java/me.acharliekelly.canvas/CanvasApplication.java`
+- Create: `backend/src/main/java/me.acharliekelly.canvas/shared/api/HealthController.java`
 - Create: `backend/src/main/resources/application.yml`, `backend/src/test/resources/application-test.yml`
-- Create: `backend/src/test/java/org/canvas/shared/api/HealthControllerTest.java`
+- Create: `backend/src/test/java/me.acharliekelly.canvas/shared/api/HealthControllerTest.java`
 - Create: `backend/Dockerfile`
 - Create: `frontend/package.json`, `frontend/package-lock.json`, `frontend/tsconfig*.json`, `frontend/vite.config.ts`
 - Create: `frontend/src/main.tsx`, `frontend/src/App.tsx`, `frontend/src/App.test.tsx`, `frontend/src/styles.css`, `frontend/src/test/setup.ts`
@@ -175,15 +175,15 @@ git commit -m "build: establish runnable CANVAS stack"
 **Deliverable:** The configured administrator signs in, uploads a validated image with metadata, and sees it in a persistent artwork list after restart.
 
 **Files:**
-- Create: `backend/src/main/java/org/canvas/identity/SecurityConfiguration.java`
-- Create: `backend/src/main/java/org/canvas/identity/api/SessionController.java`, `SessionResponse.java`
-- Create: `backend/src/main/java/org/canvas/artwork/Artwork.java`, `ArtworkRepository.java`, `ArtworkService.java`
-- Create: `backend/src/main/java/org/canvas/artwork/api/ArtworkController.java`, `ArtworkSummary.java`, `ArtworkDetail.java`
-- Create: `backend/src/main/java/org/canvas/storage/ObjectStorage.java`, `S3ObjectStorage.java`, `StorageConfiguration.java`
-- Create: `backend/src/main/java/org/canvas/shared/api/ApiExceptionHandler.java`
+- Create: `backend/src/main/java/me.acharliekelly.canvas/identity/SecurityConfiguration.java`
+- Create: `backend/src/main/java/me.acharliekelly.canvas/identity/api/SessionController.java`, `SessionResponse.java`
+- Create: `backend/src/main/java/me.acharliekelly.canvas/artwork/Artwork.java`, `ArtworkRepository.java`, `ArtworkService.java`
+- Create: `backend/src/main/java/me.acharliekelly.canvas/artwork/api/ArtworkController.java`, `ArtworkSummary.java`, `ArtworkDetail.java`
+- Create: `backend/src/main/java/me.acharliekelly.canvas/storage/ObjectStorage.java`, `S3ObjectStorage.java`, `StorageConfiguration.java`
+- Create: `backend/src/main/java/me.acharliekelly.canvas/shared/api/ApiExceptionHandler.java`
 - Create: `backend/src/main/resources/db/migration/V1__artworks.sql`
-- Create: `backend/src/test/java/org/canvas/identity/SessionApiTest.java`
-- Create: `backend/src/test/java/org/canvas/artwork/ArtworkApiTest.java`, `ArtworkUploadIntegrationTest.java`
+- Create: `backend/src/test/java/me.acharliekelly.canvas/identity/SessionApiTest.java`
+- Create: `backend/src/test/java/me.acharliekelly.canvas/artwork/ArtworkApiTest.java`, `ArtworkUploadIntegrationTest.java`
 - Create: `frontend/src/api/client.ts`, `frontend/src/api/types.ts`
 - Create: `frontend/src/auth/SignInPage.tsx`, `SignInPage.test.tsx`, `SessionProvider.tsx`
 - Create: `frontend/src/artworks/ArtworkListPage.tsx`, `ArtworkListPage.test.tsx`, `ArtworkUploadForm.tsx`, `ArtworkUploadForm.test.tsx`
@@ -269,11 +269,11 @@ git commit -m "feat: add authenticated artwork upload"
 **Deliverable:** An administrator adds zero or more labeled descriptions, orders them, edits drafts, approves revisions, and sees immutable approval history.
 
 **Files:**
-- Create: `backend/src/main/java/org/canvas/description/Description.java`, `DescriptionRevision.java`, `DescriptionSource.java`, `RevisionState.java`
-- Create: `backend/src/main/java/org/canvas/description/DescriptionRepository.java`, `DescriptionService.java`
-- Create: `backend/src/main/java/org/canvas/description/api/DescriptionController.java`, `DescriptionResponse.java`, `CreateDescriptionRequest.java`, `UpdateDraftRequest.java`, `ReorderDescriptionsRequest.java`
+- Create: `backend/src/main/java/me.acharliekelly.canvas/description/Description.java`, `DescriptionRevision.java`, `DescriptionSource.java`, `RevisionState.java`
+- Create: `backend/src/main/java/me.acharliekelly.canvas/description/DescriptionRepository.java`, `DescriptionService.java`
+- Create: `backend/src/main/java/me.acharliekelly.canvas/description/api/DescriptionController.java`, `DescriptionResponse.java`, `CreateDescriptionRequest.java`, `UpdateDraftRequest.java`, `ReorderDescriptionsRequest.java`
 - Create: `backend/src/main/resources/db/migration/V2__descriptions.sql`
-- Create: `backend/src/test/java/org/canvas/description/DescriptionServiceTest.java`, `DescriptionApiTest.java`
+- Create: `backend/src/test/java/me.acharliekelly.canvas/description/DescriptionServiceTest.java`, `DescriptionApiTest.java`
 - Create: `frontend/src/artworks/ArtworkEditorPage.tsx`, `ArtworkEditorPage.test.tsx`
 - Create: `frontend/src/artworks/DescriptionEditor.tsx`, `DescriptionEditor.test.tsx`, `ApproveDescriptionDialog.tsx`
 
@@ -344,10 +344,10 @@ git commit -m "feat: add revisioned artwork descriptions"
 **Files:**
 - Modify: `caption-worker/src/canvas_caption_worker/main.py`
 - Create: `caption-worker/src/canvas_caption_worker/contracts.py`, `caption-worker/tests/test_caption.py`
-- Create: `backend/src/main/java/org/canvas/caption/CaptionClient.java`, `HttpCaptionClient.java`, `CaptionJob.java`, `CaptionJobRepository.java`, `CaptionJobService.java`, `CaptionJobRunner.java`
-- Create: `backend/src/main/java/org/canvas/caption/api/CaptionJobController.java`, `CaptionJobResponse.java`
+- Create: `backend/src/main/java/me.acharliekelly.canvas/caption/CaptionClient.java`, `HttpCaptionClient.java`, `CaptionJob.java`, `CaptionJobRepository.java`, `CaptionJobService.java`, `CaptionJobRunner.java`
+- Create: `backend/src/main/java/me.acharliekelly.canvas/caption/api/CaptionJobController.java`, `CaptionJobResponse.java`
 - Create: `backend/src/main/resources/db/migration/V4__caption_jobs.sql`, `V5__retain_caption_job_results.sql`
-- Create: `backend/src/test/java/org/canvas/caption/CaptionJobServiceTest.java`, `CaptionJobIntegrationTest.java`
+- Create: `backend/src/test/java/me.acharliekelly.canvas/caption/CaptionJobServiceTest.java`, `CaptionJobIntegrationTest.java`
 - Create: `frontend/src/artworks/CaptionRequestPanel.tsx`, `CaptionRequestPanel.test.tsx`
 
 **Interfaces:**
@@ -415,10 +415,10 @@ git commit -m "feat: add placeholder caption workflow"
 **Deliverable:** Publishing requires an approved description and creates an immutable public snapshot that exposes only ordered approved revisions.
 
 **Files:**
-- Create: `backend/src/main/java/org/canvas/publication/Publication.java`, `PublishedDescription.java`, `PublicationRepository.java`, `PublicationService.java`
-- Create: `backend/src/main/java/org/canvas/publication/api/PublicationController.java`, `PublicArtworkController.java`, `PublicArtworkResponse.java`
+- Create: `backend/src/main/java/me.acharliekelly.canvas/publication/Publication.java`, `PublishedDescription.java`, `PublicationRepository.java`, `PublicationService.java`
+- Create: `backend/src/main/java/me.acharliekelly.canvas/publication/api/PublicationController.java`, `PublicArtworkController.java`, `PublicArtworkResponse.java`
 - Create: `backend/src/main/resources/db/migration/V6__publications.sql`
-- Create: `backend/src/test/java/org/canvas/publication/PublicationServiceTest.java`, `PublicArtworkApiTest.java`
+- Create: `backend/src/test/java/me.acharliekelly.canvas/publication/PublicationServiceTest.java`, `PublicArtworkApiTest.java`
 - Create: `frontend/src/artworks/PublishPanel.tsx`, `PublishPanel.test.tsx`
 - Create: `frontend/src/publication/PublicArtworkPage.tsx`, `PublicArtworkPage.test.tsx`
 
@@ -476,13 +476,13 @@ git commit -m "feat: publish approved artwork descriptions"
 **Deliverable:** Publication creates or reuses valid placeholder audio per approved description and a downloadable QR code for the stable public URL.
 
 **Files:**
-- Create: `backend/src/main/java/org/canvas/publication/asset/GeneratedAsset.java`, `GeneratedAssetRepository.java`, `AssetKind.java`
-- Create: `backend/src/main/java/org/canvas/publication/asset/AudioGenerator.java`, `PlaceholderAudioGenerator.java`, `QrCodeGenerator.java`, `ZxingQrCodeGenerator.java`, `AssetService.java`
-- Create: `backend/src/main/java/org/canvas/publication/api/PublicAssetController.java`
+- Create: `backend/src/main/java/me.acharliekelly.canvas/publication/asset/GeneratedAsset.java`, `GeneratedAssetRepository.java`, `AssetKind.java`
+- Create: `backend/src/main/java/me.acharliekelly.canvas/publication/asset/AudioGenerator.java`, `PlaceholderAudioGenerator.java`, `QrCodeGenerator.java`, `ZxingQrCodeGenerator.java`, `AssetService.java`
+- Create: `backend/src/main/java/me.acharliekelly.canvas/publication/api/PublicAssetController.java`
 - Create: `backend/src/main/resources/db/migration/V7__generated_assets.sql`
 - Create: `backend/src/main/resources/audio/placeholder.wav`
-- Create: `backend/src/test/java/org/canvas/publication/asset/AssetServiceTest.java`, `PublicAssetApiTest.java`
-- Modify: `backend/src/main/java/org/canvas/publication/PublicationService.java`
+- Create: `backend/src/test/java/me.acharliekelly.canvas/publication/asset/AssetServiceTest.java`, `PublicAssetApiTest.java`
+- Modify: `backend/src/main/java/me.acharliekelly.canvas/publication/PublicationService.java`
 - Modify: `frontend/src/publication/PublicArtworkPage.tsx`, `PublicArtworkPage.test.tsx`
 - Modify: `frontend/src/artworks/PublishPanel.tsx`, `PublishPanel.test.tsx`
 
@@ -545,7 +545,7 @@ git commit -m "feat: add cached publication audio and QR assets"
 - Create: `frontend/e2e/generated-description-publication.spec.ts`
 - Create: `frontend/e2e/accessibility.spec.ts`
 - Create: `frontend/e2e/fixtures/sample-artwork.png`
-- Create: `backend/src/test/java/org/canvas/architecture/ModuleBoundariesTest.java`
+- Create: `backend/src/test/java/me.acharliekelly.canvas/architecture/ModuleBoundariesTest.java`
 - Create: `docs/manual-testing.md`
 - Modify: `README.md`, `Makefile`, `compose.yaml`, `.env.example`
 

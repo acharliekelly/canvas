@@ -25,17 +25,17 @@
 
 **Files:**
 - Modify: `AGENTS.md`
-- Modify: `backend/src/main/java/org/canvas/artwork/package-info.java`
-- Modify: `backend/src/main/java/org/canvas/caption/package-info.java`
-- Modify: `backend/src/main/java/org/canvas/description/package-info.java`
-- Modify: `backend/src/main/java/org/canvas/identity/package-info.java`
-- Modify: `backend/src/main/java/org/canvas/publication/package-info.java`
-- Modify: `backend/src/main/java/org/canvas/shared/package-info.java`
-- Modify: `backend/src/main/java/org/canvas/storage/package-info.java`
-- Modify: `backend/src/main/java/org/canvas/storage/ObjectStorage.java`
-- Modify: `backend/src/main/java/org/canvas/caption/CaptionClient.java`
-- Modify: `backend/src/main/java/org/canvas/publication/asset/AudioGenerator.java`
-- Modify: `backend/src/main/java/org/canvas/publication/asset/QrCodeGenerator.java`
+- Modify: `backend/src/main/java/me.acharliekelly.canvas/artwork/package-info.java`
+- Modify: `backend/src/main/java/me.acharliekelly.canvas/caption/package-info.java`
+- Modify: `backend/src/main/java/me.acharliekelly.canvas/description/package-info.java`
+- Modify: `backend/src/main/java/me.acharliekelly.canvas/identity/package-info.java`
+- Modify: `backend/src/main/java/me.acharliekelly.canvas/publication/package-info.java`
+- Modify: `backend/src/main/java/me.acharliekelly.canvas/shared/package-info.java`
+- Modify: `backend/src/main/java/me.acharliekelly.canvas/storage/package-info.java`
+- Modify: `backend/src/main/java/me.acharliekelly.canvas/storage/ObjectStorage.java`
+- Modify: `backend/src/main/java/me.acharliekelly.canvas/caption/CaptionClient.java`
+- Modify: `backend/src/main/java/me.acharliekelly.canvas/publication/asset/AudioGenerator.java`
+- Modify: `backend/src/main/java/me.acharliekelly.canvas/publication/asset/QrCodeGenerator.java`
 
 **Interfaces:**
 - Produces: the targeted documentation standard used by Tasks 2–4.
@@ -65,7 +65,7 @@ Add package JavaDoc immediately before each package declaration/annotation. Each
  * ownership of object-storage validation and compensation.
  */
 @ApplicationModule
-package org.canvas.artwork;
+package me.acharliekelly.canvas.artwork;
 ```
 
 Use accurate equivalents for:
@@ -121,11 +121,11 @@ Expected: Java compilation and JavaDoc generation succeed; targeted guarantees a
 Commit:
 
 ```bash
-git add AGENTS.md backend/src/main/java/org/canvas/*/package-info.java \
-  backend/src/main/java/org/canvas/storage/ObjectStorage.java \
-  backend/src/main/java/org/canvas/caption/CaptionClient.java \
-  backend/src/main/java/org/canvas/publication/asset/AudioGenerator.java \
-  backend/src/main/java/org/canvas/publication/asset/QrCodeGenerator.java
+git add AGENTS.md backend/src/main/java/me.acharliekelly.canvas/*/package-info.java \
+  backend/src/main/java/me.acharliekelly.canvas/storage/ObjectStorage.java \
+  backend/src/main/java/me.acharliekelly.canvas/caption/CaptionClient.java \
+  backend/src/main/java/me.acharliekelly.canvas/publication/asset/AudioGenerator.java \
+  backend/src/main/java/me.acharliekelly.canvas/publication/asset/QrCodeGenerator.java
 git commit -m "docs: describe module and port contracts"
 ```
 
@@ -134,13 +134,13 @@ git commit -m "docs: describe module and port contracts"
 ### Task 2: Document backend lifecycle, audit, and concurrency invariants
 
 **Files:**
-- Modify: `backend/src/main/java/org/canvas/artwork/ArtworkService.java`
-- Modify: `backend/src/main/java/org/canvas/description/DescriptionService.java`
-- Modify: `backend/src/main/java/org/canvas/caption/CaptionJobService.java`
-- Modify: `backend/src/main/java/org/canvas/caption/CaptionJobRunner.java`
-- Modify: `backend/src/main/java/org/canvas/publication/PublicationService.java`
-- Modify: `backend/src/main/java/org/canvas/publication/asset/AssetService.java`
-- Modify: `backend/src/main/java/org/canvas/caption/api/CaptionJobResponse.java`
+- Modify: `backend/src/main/java/me.acharliekelly.canvas/artwork/ArtworkService.java`
+- Modify: `backend/src/main/java/me.acharliekelly.canvas/description/DescriptionService.java`
+- Modify: `backend/src/main/java/me.acharliekelly.canvas/caption/CaptionJobService.java`
+- Modify: `backend/src/main/java/me.acharliekelly.canvas/caption/CaptionJobRunner.java`
+- Modify: `backend/src/main/java/me.acharliekelly.canvas/publication/PublicationService.java`
+- Modify: `backend/src/main/java/me.acharliekelly.canvas/publication/asset/AssetService.java`
+- Modify: `backend/src/main/java/me.acharliekelly.canvas/caption/api/CaptionJobResponse.java`
 
 **Interfaces:**
 - Consumes: the targeted documentation standard from Task 1.
@@ -222,13 +222,13 @@ Expected: focused backend tests and JavaDoc generation pass; lifecycle guarantee
 Commit:
 
 ```bash
-git add backend/src/main/java/org/canvas/artwork/ArtworkService.java \
-  backend/src/main/java/org/canvas/description/DescriptionService.java \
-  backend/src/main/java/org/canvas/caption/CaptionJobService.java \
-  backend/src/main/java/org/canvas/caption/CaptionJobRunner.java \
-  backend/src/main/java/org/canvas/caption/api/CaptionJobResponse.java \
-  backend/src/main/java/org/canvas/publication/PublicationService.java \
-  backend/src/main/java/org/canvas/publication/asset/AssetService.java
+git add backend/src/main/java/me.acharliekelly.canvas/artwork/ArtworkService.java \
+  backend/src/main/java/me.acharliekelly.canvas/description/DescriptionService.java \
+  backend/src/main/java/me.acharliekelly.canvas/caption/CaptionJobService.java \
+  backend/src/main/java/me.acharliekelly.canvas/caption/CaptionJobRunner.java \
+  backend/src/main/java/me.acharliekelly.canvas/caption/api/CaptionJobResponse.java \
+  backend/src/main/java/me.acharliekelly.canvas/publication/PublicationService.java \
+  backend/src/main/java/me.acharliekelly.canvas/publication/asset/AssetService.java
 git commit -m "docs: explain backend lifecycle invariants"
 ```
 
