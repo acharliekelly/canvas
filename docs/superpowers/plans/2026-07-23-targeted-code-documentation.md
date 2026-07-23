@@ -171,7 +171,7 @@ In `CaptionJobService` and `CaptionJobRunner`, document:
 - one active job per artwork is enforced by persistence identity/state, while completed results remain queryable;
 - request creation is separate from asynchronous execution;
 - claim, external call, success finalization, and failure finalization use separate transactions so network latency does not hold database locks;
-- startup recovery requeues stale pending/running work and increments attempts only when claimed;
+- startup recovery requeues pending/running work without changing the request/retry attempt ordinal;
 - retries reuse a job safely and never publish or approve generated text;
 - success creates a generated draft and retains its result link even after the job is terminal.
 
@@ -200,7 +200,7 @@ Add class/method JavaDoc and concise comments in `AssetService` explaining:
 - the lock is deliberately held until transaction completion so rollback compensation finishes before a waiter can reuse the key;
 - cache hits verify object size/media type, and missing/mismatched objects are regenerated only when the active input/generator configuration can reproduce compatible metadata;
 - newly created objects are deleted on rollback, while pre-existing shared objects are never treated as transaction-owned;
-- a uniqueness race may resolve by loading the winner and compensating the losing object;
+- a cross-process uniqueness race propagates and rolls back, compensating only the transaction-owned losing object;
 - lock entries use reference counts so entries are removed only after the last holder/waiter completes.
 
 Preserve and refine the existing rollback/waiter comment rather than duplicating it.

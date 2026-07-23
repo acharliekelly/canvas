@@ -53,6 +53,13 @@ public class PublicationService {
         this.publicBaseUri = publicBaseUri;
     }
 
+    /**
+     * Publishes an immutable snapshot only when the locked artwork still matches {@code version}
+     * and at least one ordered description has an approved revision. Each description contributes
+     * its latest approved revision; unapproved drafts are excluded. Idempotency compares only the
+     * current snapshot, so A-to-B-to-A publishing creates a third audit event rather than
+     * reusing historical A.
+     */
     @Transactional
     public PublicationResult publish(UUID artworkId, long version, UUID administratorId) {
         Artwork artwork = artworkRepository.findByIdForUpdate(artworkId)
@@ -98,6 +105,7 @@ public class PublicationService {
                     ? assets.qrFor(publicUri(slug), publication.getId())
                     : assets.ensureQr(publication.getQrAsset(), publicUri(slug));
             publication.associateQrAsset(qr);
+            // Persist exact asset associations before changing which snapshot public reads can see.
             publication = repository.saveAndFlush(publication);
         } catch (RuntimeException error) {
             throw new PublicationProblem("asset_generation_unavailable",
@@ -117,12 +125,17 @@ public class PublicationService {
         return result(saved, artwork.getVersion(), created);
     }
 
+    /**
+     * Returns only the current publication snapshot for a public slug; drafts and superseded
+     * snapshots are absent.
+     */
     @Transactional(readOnly = true)
     public PublicArtworkResponse publicArtwork(String slug) {
         Publication publication = currentBySlug(slug);
         return PublicArtworkResponse.from(publication, slug);
     }
 
+    /** Opens the original image authorized by the current publication snapshot only. */
     @Transactional(readOnly = true)
     public PublicImage publicImage(String slug) {
         Publication publication = currentBySlug(slug);
@@ -135,6 +148,10 @@ public class PublicationService {
         }
     }
 
+    /**
+     * Opens audio only when both the published-description and generated-asset IDs match the
+     * current snapshot. Superseded asset URLs can therefore return not found.
+     */
     @Transactional(readOnly = true)
     public PublicAsset publicAudio(String slug, UUID publishedDescriptionId, UUID assetId) {
         Publication publication = currentBySlug(slug);
@@ -154,6 +171,10 @@ public class PublicationService {
         return publicAsset(asset);
     }
 
+    /**
+     * Opens the QR asset only when its ID is associated with the current snapshot. Superseded URLs
+     * can therefore return not found rather than resolve to replacement bytes.
+     */
     @Transactional(readOnly = true)
     public PublicAsset publicQr(String slug, UUID assetId) {
         Publication publication = currentBySlug(slug);
@@ -236,6 +257,8 @@ public class PublicationService {
     private static String contentHash(Artwork artwork, List<ApprovedSnapshot> approved) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            // Length-prefixed strings plus revision UUIDs and order prevent ambiguous concatenation
+            // while binding the snapshot to title, credit, and image key, media type, and byte size.
             update(digest, artwork.getTitle());
             update(digest, artwork.getCredit());
             update(digest, artwork.getImageObjectKey());
@@ -270,7 +293,12 @@ public class PublicationService {
     }
 
     public record PublicationResult(UUID publicationId, String slug, Instant publishedAt,
-            long artworkVersion, boolean created, String qrUrl,
+            /** Artwork version returned for subsequent optimistic publication requests. */
+            long artworkVersion,
+            /** True for a new immutable audit event; false when the current snapshot was reused. */
+            boolean created,
+            /** Current QR route containing the generated-asset ID, versioned by association. */
+            String qrUrl,
             List<PublishedDescriptionResult> descriptions) {}
 
     public record PublishedDescriptionResult(String label, String text) {}
