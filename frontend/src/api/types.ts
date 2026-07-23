@@ -35,6 +35,11 @@ export interface DescriptionRevisionResponse {
   updatedAt: string;
 }
 
+/**
+ * The current revision and append-only revision history for one description. `approvedRevisionId`
+ * can identify retained approved history while `currentRevision` is a newer draft; `version` is
+ * the optimistic-concurrency value for description mutations.
+ */
 export interface DescriptionResponse {
   descriptionId: string;
   artworkId: string;
@@ -50,6 +55,11 @@ export interface DescriptionResponse {
 
 export type CaptionJobState = "PENDING" | "RUNNING" | "SUCCEEDED" | "FAILED";
 
+/**
+ * Polling state for a caption request. `SUCCEEDED` and `FAILED` are terminal; `attemptCount`
+ * identifies retries, while a successful job may expose its generated description and a failed job
+ * exposes only a sanitized error message.
+ */
 export interface CaptionJobResponse {
   jobId: string;
   artworkId: string;
@@ -64,6 +74,10 @@ export interface CaptionJobResponse {
   updatedAt: string;
 }
 
+/**
+ * The publication response reports whether a new immutable snapshot was `created`, the artwork
+ * version to use next, the current snapshot's descriptions, and its asset-ID-versioned `qrUrl`.
+ */
 export interface PublicationResult {
   publicationId: string;
   slug: string;
@@ -79,6 +93,10 @@ export interface PublishedDescription {
   text: string;
 }
 
+/**
+ * The public view exposes only the current immutable publication snapshot: drafts and admin
+ * metadata are excluded. `audioUrl` can be null for conservatively upgraded legacy snapshots.
+ */
 export interface PublicArtworkResponse {
   title: string;
   credit: string;

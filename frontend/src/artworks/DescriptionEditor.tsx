@@ -28,6 +28,7 @@ export function DescriptionEditor({ artworkId, artworkVersion: initialArtworkVer
   const [status, setStatus] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [approvalId, setApprovalId] = useState<string | null>(null);
+  // Completed jobs can be observed more than once; this prevents each redelivery advancing artwork version.
   const knownDescriptionIds = useRef(new Set(initialDescriptions.map((item) => item.descriptionId)));
   const errorRef = useRef<HTMLDivElement>(null);
   const statusRef = useRef<HTMLParagraphElement>(null);
@@ -39,6 +40,7 @@ export function DescriptionEditor({ artworkId, artworkVersion: initialArtworkVer
   }, [approvalId, error]);
 
   const restoreApprovalFocus = useCallback(() => {
+    // Dialog dismissal uses the trigger to restore focus, with the status announcement as a fallback.
     const approvalButton = approvalId ? approveButtons.current[approvalId] : null;
     if (approvalButton) approvalButton.focus();
     else statusRef.current?.focus();
@@ -153,6 +155,7 @@ export function DescriptionEditor({ artworkId, artworkVersion: initialArtworkVer
   }
 
   function addGeneratedDescription(generated: DescriptionResponse) {
+    // A redelivered job replaces this ID's server state; generated responses remain unapproved drafts.
     const alreadyPresent = knownDescriptionIds.current.has(generated.descriptionId);
     knownDescriptionIds.current.add(generated.descriptionId);
     setDescriptions((current) => ordered([
@@ -201,6 +204,7 @@ export function DescriptionEditor({ artworkId, artworkVersion: initialArtworkVer
           const isApproved = current.state === "APPROVED";
           const hasApprovedHistory = current.state === "DRAFT" && description.approvedRevisionId !== null;
           const labelForNames = current.label;
+          // Approval must name a saved revision, so unsaved local edits cannot be approved.
           const isDirty = draft.label !== current.label || draft.text !== current.text;
           const approvalInstructionId = `description-${description.descriptionId}-approval-instruction`;
           return (
