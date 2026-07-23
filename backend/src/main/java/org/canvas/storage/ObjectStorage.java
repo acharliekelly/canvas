@@ -21,12 +21,15 @@ public interface ObjectStorage {
     StoredObject put(InputStream content, long byteSize, String mediaType);
 
     /**
-     * Stores a generated asset at its caller-selected deterministic key.
+     * Requests storage of a generated asset using a caller-selected deterministic key.
      *
-     * <p>This method consumes a caller-owned stream and does not promise to close it; the caller
-     * must close the stream after this call returns.
+     * <p>The default compatibility fallback delegates to {@link #put(InputStream, long, String)}
+     * and may return a storage-selected key. Configured generated storage overrides this method to
+     * persist at {@code objectKey}, which allows {@code AssetService} to repair deterministic
+     * generated objects. This method consumes a caller-owned stream and does not promise to close
+     * it; the caller must close the stream after this call returns.
      *
-     * @param objectKey exact key used for the generated object
+     * @param objectKey requested deterministic key, honored by configured generated storage
      * @param content caller-owned content stream
      * @return the exact persisted key, for later compensation or repair checks
      */
