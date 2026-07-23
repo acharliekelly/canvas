@@ -196,6 +196,7 @@ Specific vendors remain replaceable until validated by cost, reliability, access
 - [Roadmap](docs/roadmap.md)
 - [Cost Principles](docs/cost-principles.md)
 - [Local MVP Design Record](docs/superpowers/specs/2026-07-21-canvas-local-mvp-design.md)
+- [Architecture Decision Records](docs/decisions/README.md)
 - [Codex and contributor guidance](AGENTS.md)
 
 ## Collaboration
