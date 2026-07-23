@@ -2,23 +2,22 @@
 
 ## Goal
 
-Replace the incorrect backend namespace `org.canvas` with
-`me.acharliekelly.canvas` everywhere in the repository and update pull request
-#4 without changing application behavior.
+Replace the backend's former placeholder namespace with the canonical
+`me.acharliekelly.canvas` namespace everywhere in the repository and update
+pull request #4 without changing application behavior.
 
 ## Scope
 
 The migration is repository-wide:
 
-- move production Java sources from
-  `backend/src/main/java/org/canvas/` to
+- move the former production Java package tree to
   `backend/src/main/java/me/acharliekelly/canvas/`;
-- move Java tests from `backend/src/test/java/org/canvas/` to
+- move the former Java test package tree to
   `backend/src/test/java/me/acharliekelly/canvas/`;
 - replace package declarations and imports in production and test code;
 - change the backend Maven project `groupId` to `me.acharliekelly.canvas`;
-- update every textual `org.canvas` and `org/canvas` reference, including
-  historical design and implementation documents.
+- update every textual reference to the former namespace and package path,
+  including historical design and implementation documents.
 
 The migration does not rename classes, modules, endpoints, database objects,
 configuration keys, Docker services, JavaScript or Python packages, or the
@@ -48,7 +47,8 @@ remain unchanged.
 Verification must establish both functional equivalence and migration
 completeness:
 
-1. repository search finds no remaining `org.canvas` or `org/canvas`;
+1. repository search finds no remaining reference to the former namespace or
+   package path;
 2. production and test files exist only under the new package path;
 3. Maven compilation and JavaDoc generation succeed;
 4. the complete backend verification suite passes, including module,

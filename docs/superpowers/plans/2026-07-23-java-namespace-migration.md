@@ -22,8 +22,8 @@
 ### Task 1: Migrate the complete backend namespace
 
 **Files:**
-- Move: the current production package tree resolved by `FORMER_PATH=$(printf '%s/%s' org canvas)` to `backend/src/main/java/me/acharliekelly/canvas/`
-- Move: the current test package tree resolved by `FORMER_PATH=$(printf '%s/%s' org canvas)` to `backend/src/test/java/me/acharliekelly/canvas/`
+- Move: the former production package tree, resolved by constructing `FORMER_PATH` from separate namespace segments, to `backend/src/main/java/me/acharliekelly/canvas/`
+- Move: the former test package tree, resolved by constructing `FORMER_PATH` from separate namespace segments, to `backend/src/test/java/me/acharliekelly/canvas/`
 - Modify: `backend/pom.xml`
 - Modify: every tracked text file containing the former dotted namespace or package path
 - Modify: `docs/superpowers/specs/2026-07-23-java-namespace-migration-design.md`
@@ -45,7 +45,7 @@ FORMER_DOTTED=$(printf '%s.%s' org canvas)
 FORMER_PATH=$(printf '%s/%s' org canvas)
 rg -l --hidden --glob '!.git/**' --glob '!**/target/**' \
   --glob '!**/node_modules/**' --glob '!**/.venv/**' \
-  "$FORMER_DOTTED|$FORMER_PATH" .
+  -F -e "$FORMER_DOTTED" -e "$FORMER_PATH" .
 ```
 
 Expected: the worktree is clean, the branch is `docs/code-documentation`, and matches are limited to backend Java/Maven files plus documentation.
@@ -61,7 +61,7 @@ test ! -d "backend/src/main/java/$FORMER_PATH"
 test ! -d "backend/src/test/java/$FORMER_PATH"
 ! rg -n --hidden --glob '!.git/**' --glob '!**/target/**' \
   --glob '!**/node_modules/**' --glob '!**/.venv/**' \
-  "$FORMER_DOTTED|$FORMER_PATH" .
+  -F -e "$FORMER_DOTTED" -e "$FORMER_PATH" .
 ```
 
 Expected before implementation: FAIL because both former source trees and textual references still exist.
@@ -90,7 +90,7 @@ FORMER_DOTTED=$(printf '%s.%s' org canvas)
 FORMER_PATH=$(printf '%s/%s' org canvas)
 rg -l -0 --hidden --glob '!.git/**' --glob '!**/target/**' \
   --glob '!**/node_modules/**' --glob '!**/.venv/**' \
-  "$FORMER_DOTTED|$FORMER_PATH" . \
+  -F -e "$FORMER_DOTTED" -e "$FORMER_PATH" . \
   | xargs -0 sed -i \
       -e "s/$FORMER_DOTTED/me.acharliekelly.canvas/g" \
       -e "s|$FORMER_PATH|me/acharliekelly/canvas|g"
@@ -117,7 +117,7 @@ test -f backend/src/main/java/me/acharliekelly/canvas/CanvasApplication.java
 test -f backend/src/test/java/me/acharliekelly/canvas/architecture/ModuleBoundariesTest.java
 ! rg -n --hidden --glob '!.git/**' --glob '!**/target/**' \
   --glob '!**/node_modules/**' --glob '!**/.venv/**' \
-  "$FORMER_DOTTED|$FORMER_PATH" .
+  -F -e "$FORMER_DOTTED" -e "$FORMER_PATH" .
 rg -n "me\\.acharliekelly\\.canvas|me/acharliekelly/canvas" \
   backend/pom.xml backend/src docs
 ```
