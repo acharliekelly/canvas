@@ -20,7 +20,7 @@ Public generated-asset routes contain the generated-asset UUID and return immuta
 
 If cached metadata exists but its object is missing, generation repairs the object at the same content-addressed key while holding a transaction-scoped same-key lock. Repair retains the metadata identity instead of creating a duplicate row; database uniqueness also enforces one metadata record per asset kind and input key.
 
-Originals and generated assets use separate private S3-compatible buckets. MinIO root credentials are used only by the bootstrap initializer. The backend authenticates with a distinct application identity whose policy is scoped to the two configured buckets.
+Originals and generated assets use separate private S3-compatible buckets. MinIO root credentials are used only by the MinIO service and one-shot initializer, never by the backend. The backend authenticates with a distinct application identity whose policy is scoped to the two configured buckets.
 
 ## Alternatives considered
 
