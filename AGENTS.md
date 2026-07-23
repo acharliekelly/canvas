@@ -102,6 +102,13 @@ Never describe a free tier as a permanent production cost guarantee.
 - Use dependency injection at external boundaries.
 - Write comments for decisions and constraints, not for obvious syntax.
 
+### Code documentation
+
+- Document module-facing contracts and non-obvious invariants, side effects, retry/idempotency rules, error guarantees, and security or accessibility constraints.
+- Use JavaDoc for consequential Java contracts, TSDoc for consequential exported TypeScript contracts, Python docstrings for worker contracts, and language-native comments for SQL and shell invariants.
+- Explain why a constraint exists and what callers may rely on. Do not restate syntax, names, ordinary control flow, getters, repository conventions, JSX structure, or simple controller delegation.
+- Update documentation in the same change when documented behavior changes. Prefer clearer structure over comments when structure is the source of confusion.
+
 ## Testing expectations
 
 At minimum, new behavior should receive tests at the cheapest useful layer.

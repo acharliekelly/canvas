@@ -14,6 +14,13 @@ export function setCsrfToken(token: string) {
   csrfToken = token;
 }
 
+/**
+ * Calls same-origin APIs with session credentials. Mutation requests send the current CSRF token
+ * issued by `/api/session` as `X-CSRF-TOKEN`; a session response refreshes the cached token.
+ * Empty successful responses resolve as `undefined`; other successful JSON responses are returned
+ * as the requested type. RFC problem JSON becomes an `ApiError` with status, code, and field, while other
+ * failures receive a safe fallback message. Requests are not automatically retried.
+ */
 export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers);
   const method = (init.method ?? "GET").toUpperCase();

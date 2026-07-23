@@ -26,6 +26,12 @@ public class CaptionJobService {
         this.autoSubmit = autoSubmit;
     }
 
+    /**
+     * Creates one active job per artwork or returns the existing active/terminal-successful job.
+     * Persistence state and the active-artwork uniqueness constraint enforce that identity, while
+     * completed jobs remain queryable. A failed job creates the next retry attempt; request
+     * creation commits before asynchronous execution is submitted.
+     */
     @Transactional
     public CaptionJobResponse request(UUID artworkId) {
         Artwork artwork = artworkRepository.findByIdForUpdate(artworkId)
@@ -59,6 +65,7 @@ public class CaptionJobService {
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
             public void afterCommit() {
+                // A runner cannot claim a job that the request transaction did not commit.
                 runner.submit(jobId);
             }
         });

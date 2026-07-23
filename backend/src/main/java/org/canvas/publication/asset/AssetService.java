@@ -25,6 +25,12 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+/**
+ * Caches generated assets by kind, generator namespace, and exact input identity. Same-key
+ * creation is serialized only within this JVM; the keyed lock is not a distributed lock.
+ * Database uniqueness constrains metadata but does not isolate the deterministic storage key
+ * across processes.
+ */
 @Service
 public class AssetService {
     private static final Logger log = LoggerFactory.getLogger(AssetService.class);
@@ -44,6 +50,11 @@ public class AssetService {
         this.storage = storage;
     }
 
+    /**
+     * Returns or creates audio for the exact approved revision input. Cache reuse verifies stored
+     * size and media type; a missing or mismatched object is repaired only when the active input
+     * and generator configuration reproduce compatible metadata.
+     */
     @Transactional
     public GeneratedAsset audioFor(ApprovedDescriptionInput input) {
         String inputKey = audioInputKey(input);
@@ -53,6 +64,7 @@ public class AssetService {
                 .orElseGet(() -> storeAudio(input, inputKey));
     }
 
+    /** Applies the same identity and repair rules to a QR code for its exact public URI. */
     @Transactional
     public GeneratedAsset qrFor(URI publicUri, UUID sourcePublicationId) {
         String inputKey = qrInputKey(publicUri);
@@ -163,6 +175,9 @@ public class AssetService {
         byte[] bytes = binary.bytes();
         ObjectStorage.StoredObject stored = storage.putGenerated(objectKey,
                 new ByteArrayInputStream(bytes), bytes.length, binary.mediaType());
+        // This registers key-based rollback compensation. A cross-process uniqueness race
+        // propagates its database failure and may share or replace this deterministic key; the
+        // compensation still deletes by key and does not provide cross-process isolation.
         registerRollbackCompensation(stored.objectKey());
         return stored;
     }
@@ -204,8 +219,9 @@ public class AssetService {
         });
         entry.lock.lock();
         try {
-            // The shared deterministic object remains owned by this transaction until commit or
-            // rollback cleanup finishes, so a waiter can never overwrite it before compensation.
+            // Hold the lock until transaction completion, after rollback compensation finishes,
+            // so an in-JVM waiter cannot observe or delete the key during that cleanup. This does
+            // not protect the same key from another process.
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override
                 public int getOrder() {
@@ -229,6 +245,7 @@ public class AssetService {
             if (current != entry) {
                 throw new IllegalStateException("Generated asset lock ownership changed unexpectedly.");
             }
+            // The reference count retains the entry until the last holder or waiter completes.
             entry.references--;
             return entry.references == 0 ? null : entry;
         });

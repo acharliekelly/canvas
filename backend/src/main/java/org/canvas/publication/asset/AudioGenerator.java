@@ -4,13 +4,25 @@ import java.util.Arrays;
 import java.util.Objects;
 import java.util.UUID;
 
+/**
+ * Generates audio bytes for an approved publication input. Implementations identify their
+ * compatible output with a generator namespace and output metadata.
+ */
 public interface AudioGenerator {
     default String cacheNamespace() {
         return "placeholder-audio-v1";
     }
 
+    /**
+     * Generates audio for the exact approved revision identity, label, and text.
+     * Output metadata identifies generator compatibility; deterministic cache identity is handled
+     * by {@link AssetService}, not promised solely by the produced bytes.
+     */
     GeneratedBinary generate(ApprovedDescriptionInput input);
 
+    /**
+     * Revision ID, label, and text jointly identify the approved revision publication input.
+     */
     record ApprovedDescriptionInput(UUID revisionId, String label, String text) {
         public ApprovedDescriptionInput {
             Objects.requireNonNull(revisionId, "revisionId");
@@ -19,6 +31,10 @@ public interface AudioGenerator {
         }
     }
 
+    /**
+     * Byte array, media type, and generator form a compatibility tuple used for generated-asset
+     * validation. Callers must not mutate the returned byte array.
+     */
     record GeneratedBinary(byte[] bytes, String mediaType, String generator) {
         public GeneratedBinary {
             bytes = Arrays.copyOf(Objects.requireNonNull(bytes, "bytes"), bytes.length);

@@ -38,6 +38,10 @@ public class DescriptionService {
         return createDraft(artworkId, label, text, DescriptionSource.GENERATED);
     }
 
+    /**
+     * Creates a description under the artwork row lock, then advances the artwork's optimistic
+     * version so a publication request based on the preceding collection cannot proceed.
+     */
     private DescriptionResponse createDraft(UUID artworkId, String label, String text, DescriptionSource source) {
         String normalizedLabel = requiredLabel(label);
         String normalizedText = requiredText(text);
@@ -51,6 +55,11 @@ public class DescriptionService {
         return response;
     }
 
+    /**
+     * Saves a draft against the description's optimistic version. When the current revision is
+     * approved, saving appends a new draft linked to that revision instead of mutating approved
+     * history; otherwise it replaces the current unapproved draft.
+     */
     @Transactional
     public DescriptionResponse updateDraft(UUID artworkId, UUID descriptionId,
             String label, String text, Long expectedVersion) {
@@ -68,6 +77,11 @@ public class DescriptionService {
         return DescriptionResponse.from(repository.saveAndFlush(description));
     }
 
+    /**
+     * Approves only the current saved draft and records the approving administrator and time.
+     * The artwork row lock serializes approval with collection changes, and its advanced optimistic
+     * version invalidates stale publication previews.
+     */
     @Transactional
     public DescriptionResponse approve(UUID artworkId, UUID descriptionId,
             String approver, Long expectedVersion) {
@@ -83,6 +97,11 @@ public class DescriptionService {
         return DescriptionResponse.from(repository.saveAndFlush(description));
     }
 
+    /**
+     * Reorders the complete description set while holding the artwork row lock and checking its
+     * optimistic version. The collection version advances because publication consumes this
+     * ordering as part of its immutable snapshot input.
+     */
     @Transactional
     public List<DescriptionResponse> reorder(UUID artworkId, List<UUID> requestedIds, Long expectedArtworkVersion) {
         Artwork artwork = requireArtworkForUpdate(artworkId);
@@ -91,6 +110,8 @@ public class DescriptionService {
         validateOrder(current, requestedIds);
         advanceArtworkVersion(artwork);
 
+        // Offset every position before assigning final values so swaps cannot violate the unique
+        // (artwork_id, display_order) constraint during the two-phase reorder.
         repository.moveOrdersOutOfTheWay(artworkId);
         for (int index = 0; index < requestedIds.size(); index++) {
             if (repository.setDisplayOrder(artworkId, requestedIds.get(index), index) != 1) {

@@ -13,6 +13,7 @@ export function CaptionRequestPanel({ artworkId, onGenerated }: {
   const [job, setJob] = useState<CaptionJobResponse | null>(null);
   const [status, setStatus] = useState("");
   const [requesting, setRequesting] = useState(false);
+  // This ref is the sole polling-timer owner; terminal handling schedules no further poll and unmount clears it.
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const focusTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mounted = useRef(true);
@@ -75,6 +76,7 @@ export function CaptionRequestPanel({ artworkId, onGenerated }: {
   }
 
   async function addGeneratedDescription(succeeded: CaptionJobResponse) {
+    // A completed job may be redelivered, so re-read and pass the server description by its stable ID.
     try {
       const descriptions = await apiFetch<DescriptionResponse[]>(`/api/artworks/${artworkId}/descriptions`);
       if (!mounted.current) return;

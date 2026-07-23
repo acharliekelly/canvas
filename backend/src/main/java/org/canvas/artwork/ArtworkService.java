@@ -42,6 +42,12 @@ public class ArtworkService {
         this.maxBytes = maximumSize.toBytes();
     }
 
+    /**
+     * Validates metadata and decodes the image before storing its original bytes. Storage precedes
+     * metadata persistence because the row must reference an existing object; if persistence then
+     * fails, this method performs best-effort storage compensation without exposing the object key
+     * to the caller. A cleanup failure is logged and never replaces the original persistence error.
+     */
     public ArtworkDetail upload(MultipartFile image, String title, String credit, String context) {
         String normalizedTitle = requiredMetadata(title, "title", "Title");
         String normalizedCredit = requiredMetadata(credit, "credit", "Artist or display credit");
@@ -63,6 +69,7 @@ public class ArtworkService {
             try {
                 storage.delete(stored.objectKey());
             } catch (RuntimeException compensationFailure) {
+                // Preserve the actionable persistence failure; cleanup is best-effort only.
                 persistenceFailure.addSuppressed(compensationFailure);
                 log.error("Failed to delete object after artwork persistence failure", compensationFailure);
             }

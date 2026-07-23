@@ -1,3 +1,4 @@
+-- The owner-pair unique key permits current revisions and their descriptions to be constrained consistently.
 ALTER TABLE description_revisions
     ADD CONSTRAINT description_revisions_owner_id_unique
     UNIQUE (description_id, id);
@@ -5,6 +6,7 @@ ALTER TABLE description_revisions
 ALTER TABLE descriptions
     ADD COLUMN current_revision_owner_id UUID;
 
+-- Backfill ownership before foreign-key validation so existing current revisions satisfy the new constraint.
 UPDATE descriptions
 SET current_revision_owner_id = id
 WHERE current_revision_id IS NOT NULL;

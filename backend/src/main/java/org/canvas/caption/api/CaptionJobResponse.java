@@ -7,9 +7,13 @@ import org.canvas.caption.CaptionJob;
 public record CaptionJobResponse(
         UUID jobId,
         UUID artworkId,
+        /** Terminal states are {@code SUCCEEDED} and {@code FAILED}; polling may stop then. */
         CaptionJob.State state,
+        /** Counts the initial request or a retry created after failure, not runner claims. */
         int attemptCount,
+        /** A sanitized failure explanation; worker and executor internals are never returned. */
         String errorMessage,
+        /** The generated draft retained by a successful terminal job, or {@code null} otherwise. */
         UUID resultingDescriptionId,
         long version,
         Instant createdAt,

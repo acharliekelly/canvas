@@ -20,6 +20,11 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionTemplate;
 
+/**
+ * Runs persistent caption jobs as claim, external-call, and finalization phases. Each database
+ * phase uses a separate transaction, so worker network latency never holds a database lock.
+ * Generated text is saved only as an unapproved draft; this runner never approves or publishes it.
+ */
 @Component
 public class CaptionJobRunner {
     static final String SAFE_FAILURE = "Placeholder generation could not be completed. Please retry.";
@@ -59,6 +64,8 @@ public class CaptionJobRunner {
             List<CaptionJob> incomplete = repository.findAllByStateInForUpdate(
                     List.of(CaptionJob.State.PENDING, CaptionJob.State.RUNNING));
             Instant now = Instant.now();
+            // Pending work is requeued unchanged; abandoned running work becomes pending again.
+            // Attempt counts identify retry jobs created after failure, not individual claims.
             incomplete.forEach(job -> job.resetForRecovery(now));
             repository.flush();
             return incomplete.stream().map(CaptionJob::getId).toList();
@@ -71,6 +78,7 @@ public class CaptionJobRunner {
     }
 
     public void run(UUID jobId) {
+        // Claim and terminal transitions are isolated from the external call in separate transactions.
         ClaimedJob claimed = transactions.execute(status -> claim(jobId));
         if (claimed == null) {
             return;
@@ -110,6 +118,7 @@ public class CaptionJobRunner {
         }
         var generated = descriptions.createGeneratedDraft(
                 job.getArtwork().getId(), response.label(), response.text());
+        // The terminal job retains this generated-draft link for later polling and audit.
         job.succeed(generated.descriptionId(), Instant.now());
         repository.saveAndFlush(job);
         return generated.descriptionId();

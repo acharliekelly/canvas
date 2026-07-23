@@ -35,6 +35,7 @@ export function PublishPanel({ artworkId, artworkTitle = "this artwork", artwork
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ version: artworkVersion }),
     }).then((published) => {
+      // Repeated publish requests can be idempotent; always adopt the server's version and asset URLs.
       setResult(published);
       setConfirming(false);
       setStatus(published.created ? "Artwork published" : "Published artwork is already up to date");
@@ -85,6 +86,7 @@ function PublicationDialog({ publishing, descriptions, onConfirm, onCancel, onRe
       else dialog.setAttribute("open", "");
     }
     confirmRef.current?.focus();
+    // Cleanup restores trigger focus only after the dialog completes, never during a publishing render.
     return onReturnFocus;
   }, [onReturnFocus]);
 
@@ -119,6 +121,7 @@ interface ListDescription extends PublishedDescription {
 }
 
 function approvedDescriptions(descriptions: DescriptionResponse[]): ListDescription[] {
+  // Preview the approved current revision or retained approved history, in backend display order only.
   return [...descriptions]
     .sort((left, right) => left.displayOrder - right.displayOrder)
     .flatMap((description) => {
