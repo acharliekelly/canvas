@@ -9,6 +9,9 @@ FROM build AS test
 CMD ["mvn", "test"]
 
 FROM eclipse-temurin:25-jre
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates wget \
+    && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=build /workspace/target/canvas-backend-0.0.1-SNAPSHOT.jar app.jar
 EXPOSE 8080
