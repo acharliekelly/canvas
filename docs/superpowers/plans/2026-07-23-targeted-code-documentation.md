@@ -6,7 +6,7 @@
 
 **Architecture:** Document module boundaries and external ports first, then lifecycle-heavy backend logic, browser/worker contracts, and persistence/bootstrap safety rules. Every comment must be validated against current implementation and tests; comments that only narrate syntax or control flow are defects.
 
-**Tech Stack:** Java 21 JavaDoc, TypeScript/TSDoc, Python 3.13 docstrings, PostgreSQL SQL comments, POSIX shell comments, Maven, npm, pytest.
+**Tech Stack:** Java 25 JavaDoc, TypeScript/TSDoc, Python 3.13 docstrings, PostgreSQL SQL comments, POSIX shell comments, Maven, npm, pytest.
 
 ## Global Constraints
 

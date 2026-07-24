@@ -24,7 +24,7 @@ CANVAS remains a monorepo with these runtime components:
 
 Docker Compose orchestrates these components for local use. Published host ports bind to loopback so the local services are not exposed on all host interfaces.
 
-Java 21, Node.js 24, and Python 3.13 are the project runtime baselines. Flyway owns forward schema migrations beginning with the first persisted schema. No additional deployable service is added without demonstrated operational need; business modules remain within the backend unless extraction becomes justified.
+Java 25, Node.js 24, and Python 3.13 are the project runtime baselines. Flyway owns forward schema migrations beginning with the first persisted schema. No additional deployable service is added without demonstrated operational need; business modules remain within the backend unless extraction becomes justified.
 
 ## Alternatives considered
 

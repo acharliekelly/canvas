@@ -75,7 +75,7 @@ The first MVP is admin-only. It does not include public artist registration, aut
 ### Prerequisites
 
 - Docker Engine with Docker Compose v2 and at least 4 GB available memory;
-- Java 21, Node.js 24 with npm, and Python 3.13 for host-side verification;
+- Java 25, Node.js 24 with npm, and Python 3.13 for host-side verification;
 - GNU Make and curl;
 - Playwright's bundled Chromium for automated E2E checks. Install it with `cd frontend && npx playwright install chromium`. Google Chrome is optional for manual assistive-technology checks; set `CANVAS_E2E_BROWSER_CHANNEL=chrome` only when deliberately running those checks in Chrome.
 

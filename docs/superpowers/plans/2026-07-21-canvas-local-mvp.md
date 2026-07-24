@@ -6,7 +6,7 @@
 
 **Architecture:** Deliver the MVP as seven vertical milestones across a React client, Spring Boot modular monolith, PostgreSQL, MinIO, and a deterministic FastAPI caption worker. Spring owns all workflow state and publication rules; external behavior is accessed through replaceable caption, audio, storage, and QR ports.
 
-**Tech Stack:** Java 21, Spring Boot 4.1.x, Maven Wrapper, PostgreSQL, Flyway, AWS SDK for Java S3 client, React 19.2.x, TypeScript, Vite, Node.js 24 LTS, npm, Python 3.13, FastAPI, Docker Compose, MinIO, Vitest, Testing Library, Playwright, pytest, Testcontainers, axe-core, and ZXing.
+**Tech Stack:** Java 25, Spring Boot 4.1.x, Maven Wrapper, PostgreSQL, Flyway, AWS SDK for Java S3 client, React 19.2.x, TypeScript, Vite, Node.js 24 LTS, npm, Python 3.13, FastAPI, Docker Compose, MinIO, Vitest, Testing Library, Playwright, pytest, Testcontainers, axe-core, and ZXing.
 
 ## Global Constraints
 
@@ -85,7 +85,7 @@ Every Java package named above must include a Spring Modulith `package-info.java
 
 - [ ] **Step 1: Generate supported project wrappers and lockfiles**
 
-Use Spring Initializr for Maven, Java 21, Spring Boot 4.1.x with Web, Validation, Security, Data JPA, Actuator, Flyway, PostgreSQL, and Testcontainers. Generate the frontend with Vite's React TypeScript template under Node 24 LTS. Initialize the worker with Python 3.13, FastAPI, Uvicorn, pytest, and HTTPX. Commit Maven wrapper and npm lockfiles; pin direct Python dependencies in `pyproject.toml`.
+Use Spring Initializr for Maven, Java 25, Spring Boot 4.1.x with Web, Validation, Security, Data JPA, Actuator, Flyway, PostgreSQL, and Testcontainers. Generate the frontend with Vite's React TypeScript template under Node 24 LTS. Initialize the worker with Python 3.13, FastAPI, Uvicorn, pytest, and HTTPX. Commit Maven wrapper and npm lockfiles; pin direct Python dependencies in `pyproject.toml`.
 
 Run:
 
@@ -95,7 +95,7 @@ node --version
 python3 --version
 ```
 
-Expected: Java 21.x, Node 24.x, and Python 3.13.x. If the host differs, continue through the pinned container builds.
+Expected: Java 25.x, Node 24.x, and Python 3.13.x. If the host differs, continue through the pinned container builds.
 
 - [ ] **Step 2: Write failing health tests**
 
