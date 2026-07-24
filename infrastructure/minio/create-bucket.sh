@@ -2,7 +2,17 @@
 set -eu
 
 # MinIO root credentials belong only to the server and this one-shot bootstrap, never the backend.
-mc alias set local http://minio:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD"
+max_alias_attempts=10
+alias_attempt=1
+until mc alias set local http://minio:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD"; do
+    if [ "$alias_attempt" -ge "$max_alias_attempts" ]; then
+        printf '%s\n' "MinIO bootstrap could not connect after $max_alias_attempts attempts." >&2
+        exit 1
+    fi
+    printf '%s\n' "MinIO bootstrap connection attempt $alias_attempt failed; retrying in one second." >&2
+    alias_attempt=$((alias_attempt + 1))
+    sleep 1
+done
 # Both configured buckets are explicitly private.
 mc mb --ignore-existing "local/$CANVAS_ORIGINALS_BUCKET"
 mc mb --ignore-existing "local/$CANVAS_GENERATED_BUCKET"
